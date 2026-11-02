@@ -242,6 +242,11 @@ if ($SmokeTest) {
         $window.Show(); $window.UpdateLayout()
         $window.Dispatcher.Invoke([Action]{}, [Windows.Threading.DispatcherPriority]::ApplicationIdle)
         $view=$window.Content
+        # Feste Vorschaugrösse, unabhängig von der Auflösung des Windows-Runners.
+        $size=[Windows.Size]::new(1160,860)
+        $view.Measure($size)
+        $view.Arrange([Windows.Rect]::new($size))
+        $view.UpdateLayout()
         $bitmap=[Windows.Media.Imaging.RenderTargetBitmap]::new(
             [int][Math]::Ceiling($view.ActualWidth),[int][Math]::Ceiling($view.ActualHeight),
             96,96,[Windows.Media.PixelFormats]::Pbgra32)

@@ -18,27 +18,27 @@
       "Niederlagen": 1,
       "Serien": [
         {
-          "Label": "03-01 · Everton",
+          "Label": "01.03. · Everton",
           "A": 2,
           "B": 0
         },
         {
-          "Label": "03-08 · Fulham",
+          "Label": "08.03. · Fulham",
           "A": 1,
           "B": 1
         },
         {
-          "Label": "03-15 · Chelsea",
+          "Label": "15.03. · Chelsea",
           "A": 0,
           "B": 1
         },
         {
-          "Label": "03-22 · Brighton",
+          "Label": "22.03. · Brighton",
           "A": 3,
           "B": 1
         },
         {
-          "Label": "03-29 · West Ham",
+          "Label": "29.03. · West Ham",
           "A": 2,
           "B": 1
         }
@@ -61,27 +61,27 @@
       "Niederlagen": 1,
       "Serien": [
         {
-          "Label": "03-01 · Brentford",
+          "Label": "01.03. · Brentford",
           "A": 1,
           "B": 0
         },
         {
-          "Label": "03-08 · Arsenal",
+          "Label": "08.03. · Arsenal",
           "A": 2,
           "B": 2
         },
         {
-          "Label": "03-15 · Everton",
+          "Label": "15.03. · Everton",
           "A": 3,
           "B": 1
         },
         {
-          "Label": "03-22 · Chelsea",
+          "Label": "22.03. · Chelsea",
           "A": 1,
           "B": 2
         },
         {
-          "Label": "03-29 · Fulham",
+          "Label": "29.03. · Fulham",
           "A": 4,
           "B": 0
         }
@@ -104,27 +104,27 @@
       "Niederlagen": 1,
       "Serien": [
         {
-          "Label": "03-01 · Mainz",
+          "Label": "01.03. · Mainz",
           "A": 3,
           "B": 1
         },
         {
-          "Label": "03-08 · Freiburg",
+          "Label": "08.03. · Freiburg",
           "A": 2,
           "B": 0
         },
         {
-          "Label": "03-15 · Leipzig",
+          "Label": "15.03. · Leipzig",
           "A": 1,
           "B": 1
         },
         {
-          "Label": "03-22 · Dortmund",
+          "Label": "22.03. · Dortmund",
           "A": 0,
           "B": 2
         },
         {
-          "Label": "03-29 · Augsburg",
+          "Label": "29.03. · Augsburg",
           "A": 2,
           "B": 1
         }

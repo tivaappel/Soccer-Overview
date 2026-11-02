@@ -33,7 +33,7 @@
   </Style>
   <Style x:Key="Count" TargetType="TextBlock"><Setter Property="FontSize" Value="30"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
  </Window.Resources>
- <DockPanel LastChildFill="True">
+ <DockPanel LastChildFill="True" Background="#F2F5F2">
   <Border DockPanel.Dock="Top" Background="#102E23" Padding="22,12"><DockPanel>
    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
     <Border Background="#C6F671" Width="31" Height="31" CornerRadius="7" Margin="0,0,10,0">
