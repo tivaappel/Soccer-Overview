@@ -1,0 +1,230 @@
+{
+  "Beschreibung": "Fiktive Beispieldaten für die Offline-Demo. Kein historischer Saisonstand.",
+  "Eintraege": [
+    {
+      "Typ": "Club",
+      "Id": 42,
+      "Name": "Arsenal",
+      "Land": "England",
+      "Stadion": "Emirates Stadium",
+      "Gruendungsjahr": 1886,
+      "Saison": 2024,
+      "Quelle": "Demo",
+      "Einsaetze": 5,
+      "Tore": 8,
+      "Gegentore": 4,
+      "Siege": 3,
+      "Remis": 1,
+      "Niederlagen": 1,
+      "Serien": [
+        {
+          "Label": "03-01 · Everton",
+          "A": 2,
+          "B": 0
+        },
+        {
+          "Label": "03-08 · Fulham",
+          "A": 1,
+          "B": 1
+        },
+        {
+          "Label": "03-15 · Chelsea",
+          "A": 0,
+          "B": 1
+        },
+        {
+          "Label": "03-22 · Brighton",
+          "A": 3,
+          "B": 1
+        },
+        {
+          "Label": "03-29 · West Ham",
+          "A": 2,
+          "B": 1
+        }
+      ]
+    },
+    {
+      "Typ": "Club",
+      "Id": 50,
+      "Name": "Manchester City",
+      "Land": "England",
+      "Stadion": "Etihad Stadium",
+      "Gruendungsjahr": 1880,
+      "Saison": 2024,
+      "Quelle": "Demo",
+      "Einsaetze": 5,
+      "Tore": 11,
+      "Gegentore": 5,
+      "Siege": 3,
+      "Remis": 1,
+      "Niederlagen": 1,
+      "Serien": [
+        {
+          "Label": "03-01 · Brentford",
+          "A": 1,
+          "B": 0
+        },
+        {
+          "Label": "03-08 · Arsenal",
+          "A": 2,
+          "B": 2
+        },
+        {
+          "Label": "03-15 · Everton",
+          "A": 3,
+          "B": 1
+        },
+        {
+          "Label": "03-22 · Chelsea",
+          "A": 1,
+          "B": 2
+        },
+        {
+          "Label": "03-29 · Fulham",
+          "A": 4,
+          "B": 0
+        }
+      ]
+    },
+    {
+      "Typ": "Club",
+      "Id": 157,
+      "Name": "Bayern München",
+      "Land": "Deutschland",
+      "Stadion": "Allianz Arena",
+      "Gruendungsjahr": 1900,
+      "Saison": 2024,
+      "Quelle": "Demo",
+      "Einsaetze": 5,
+      "Tore": 8,
+      "Gegentore": 5,
+      "Siege": 3,
+      "Remis": 1,
+      "Niederlagen": 1,
+      "Serien": [
+        {
+          "Label": "03-01 · Mainz",
+          "A": 3,
+          "B": 1
+        },
+        {
+          "Label": "03-08 · Freiburg",
+          "A": 2,
+          "B": 0
+        },
+        {
+          "Label": "03-15 · Leipzig",
+          "A": 1,
+          "B": 1
+        },
+        {
+          "Label": "03-22 · Dortmund",
+          "A": 0,
+          "B": 2
+        },
+        {
+          "Label": "03-29 · Augsburg",
+          "A": 2,
+          "B": 1
+        }
+      ]
+    },
+    {
+      "Typ": "Spieler",
+      "Id": 1100,
+      "Name": "Erling Haaland",
+      "Land": "Norwegen",
+      "Verein": "Manchester City",
+      "Position": "Sturm",
+      "Saison": 2024,
+      "Quelle": "Demo",
+      "Einsaetze": 37,
+      "Tore": 31,
+      "Assists": 7,
+      "Startelf": 33,
+      "Minuten": 2930,
+      "Serien": [
+        {
+          "Label": "Premier League",
+          "A": 22,
+          "B": 4
+        },
+        {
+          "Label": "Champions League",
+          "A": 6,
+          "B": 2
+        },
+        {
+          "Label": "FA Cup",
+          "A": 3,
+          "B": 1
+        }
+      ]
+    },
+    {
+      "Typ": "Spieler",
+      "Id": 1460,
+      "Name": "Bukayo Saka",
+      "Land": "England",
+      "Verein": "Arsenal",
+      "Position": "Flügel",
+      "Saison": 2024,
+      "Quelle": "Demo",
+      "Einsaetze": 34,
+      "Tore": 16,
+      "Assists": 14,
+      "Startelf": 30,
+      "Minuten": 2610,
+      "Serien": [
+        {
+          "Label": "Premier League",
+          "A": 12,
+          "B": 10
+        },
+        {
+          "Label": "Champions League",
+          "A": 3,
+          "B": 3
+        },
+        {
+          "Label": "FA Cup",
+          "A": 1,
+          "B": 1
+        }
+      ]
+    },
+    {
+      "Typ": "Spieler",
+      "Id": 501,
+      "Name": "Jamal Musiala",
+      "Land": "Deutschland",
+      "Verein": "Bayern München",
+      "Position": "Mittelfeld",
+      "Saison": 2024,
+      "Quelle": "Demo",
+      "Einsaetze": 32,
+      "Tore": 14,
+      "Assists": 12,
+      "Startelf": 25,
+      "Minuten": 2310,
+      "Serien": [
+        {
+          "Label": "Bundesliga",
+          "A": 10,
+          "B": 7
+        },
+        {
+          "Label": "Champions League",
+          "A": 3,
+          "B": 3
+        },
+        {
+          "Label": "DFB-Pokal",
+          "A": 1,
+          "B": 2
+        }
+      ]
+    }
+  ]
+}
