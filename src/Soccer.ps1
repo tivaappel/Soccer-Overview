@@ -4,7 +4,7 @@ $SoccerRoot = Split-Path $PSScriptRoot -Parent
 function Invoke-FootballApi {
     param([string]$Endpoint, [hashtable]$Query, [string]$ApiKey)
     if ([string]::IsNullOrWhiteSpace($ApiKey)) {
-        throw 'Live-Modus braucht einen API-Key. Setze API_FOOTBALL_KEY vor dem Start oder wähle Demo.'
+        throw 'Live-Modus braucht einen API-Key. Gib oben im Fenster den Schlüssel ein oder setze API_FOOTBALL_KEY vor dem Start.'
     }
     $parameters = foreach ($name in $Query.Keys) {
         '{0}={1}' -f $name, [Uri]::EscapeDataString([string]$Query[$name])
@@ -31,16 +31,8 @@ function Invoke-FootballApi {
 
 function Find-SoccerEntry {
     param([ValidateSet('Club','Spieler')][string]$Typ, [string]$Suche, [int]$Saison,
-          [switch]$Demo, [string]$ApiKey = $env:API_FOOTBALL_KEY)
+          [string]$ApiKey = $env:API_FOOTBALL_KEY)
     $term = $Suche.Trim()
-    if ($Demo) {
-        $sample = Get-Content (Join-Path $SoccerRoot 'demo/saison.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-        foreach ($entry in $sample.Eintraege) {
-            if ($entry.Typ -eq $Typ -and $entry.Saison -eq $Saison -and
-                $entry.Name.IndexOf($term, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $entry }
-        }
-        return
-    }
     if ($term.Length -lt 4) { throw 'Gib für die Live-Suche mindestens vier Zeichen ein.' }
     $path = if ($Typ -eq 'Club') { 'teams' } else { 'players/profiles' }
     foreach ($item in (Invoke-FootballApi $path @{search=$term} $ApiKey)) {
@@ -65,7 +57,6 @@ function Get-KnownTotal {
 
 function Get-SoccerDetail {
     param($Entry, [string]$ApiKey = $env:API_FOOTBALL_KEY)
-    if ($Entry.Quelle -eq 'Demo') { return $Entry }
     $extra = [ordered]@{ Aktualisiert=(Get-Date).ToString('o'); Verein=$null; Position=$null
         Einsaetze=$null; Tore=$null; Assists=$null; Gegentore=$null; Siege=$null; Remis=$null
         Niederlagen=$null; Startelf=$null; Minuten=$null; Serien=@(); Hinweis='' }
@@ -115,8 +106,7 @@ function Get-SoccerDetail {
 
 function Get-EntryKey {
     param($Entry)
-    $source = if ($Entry.Quelle -eq 'Demo') { 'demo' } else { 'live' }
-    return "$source/$($Entry.Typ)/$($Entry.Id)/$($Entry.Saison)"
+    return "$($Entry.Typ)/$($Entry.Id)/$($Entry.Saison)"
 }
 
 function Read-SoccerStore {
@@ -127,7 +117,10 @@ function Read-SoccerStore {
         if ($null -eq $doc -or !$doc.PSObject.Properties['Eintraege'] -or $doc.Eintraege -isnot [array]) {
             throw 'Das Feld Eintraege muss eine Liste sein.'
         }
-        foreach ($row in $doc.Eintraege) { if ($null -ne $row) { $row } }
+        foreach ($row in $doc.Eintraege) {
+            # Originaldateien haben keine Quelle. Neue Profile stammen aus API-Football.
+            if ($null -ne $row -and (!$row.Quelle -or $row.Quelle -eq 'API-Football')) { $row }
+        }
     } catch { throw "Lokale Daten konnten nicht gelesen werden ($Path): $($_.Exception.Message)" }
 }
 

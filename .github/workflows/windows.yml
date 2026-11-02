@@ -11,11 +11,6 @@ jobs:
       - name: Test data and native WPF views
         shell: powershell
         run: powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\tests\Test.ps1
-      - name: Render the WPF demo
+      - name: Check the default desktop entry point
         shell: powershell
-        run: powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\Start.ps1 -SmokeTest -PreviewPath "$pwd\dashboard.png"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: soccer-dashboard
-          path: dashboard.png
-          retention-days: 7
+        run: powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\Start.ps1 -SmokeTest

@@ -1,6 +1,6 @@
 ﻿# Desktop-Startpunkt. Die Datenlogik in src/Soccer.ps1 ist unabhängig von WPF.
 [CmdletBinding()]
-param([switch]$SmokeTest, [string]$PreviewPath, [string]$DataFile)
+param([switch]$SmokeTest, [string]$DataFile)
 $ErrorActionPreference = 'Stop'
 if (!$DataFile) { $DataFile=Join-Path $PSScriptRoot 'data/football.json' }
 if ($env:OS -ne 'Windows_NT') { throw 'Die WPF-Oberfläche braucht Windows. read.ps1 und write.ps1 laufen auch mit PowerShell 7 unter Linux.' }
@@ -21,7 +21,11 @@ foreach ($node in $layout.SelectNodes('//*[@x:Name]', $ns)) {
     $control = $window.FindName($name)
     if ($null -ne $control) { $ui[$name] = $control }
 }
-$state = @{ tab='Suche'; entry=$null; saved=@(); job=$null; updating=$false }
+$state = @{ tab='Suche'; entry=$null; saved=@(); job=$null; updating=$false; apiKey=$env:API_FOOTBALL_KEY }
+$today=Get-Date
+$year=$today.Year
+if ($today.Month -lt 7) { $year-- }
+$ui.Season.Text=[string]$year
 $green = '#1D7850'; $blue = '#5D7EB3'
 
 function Set-Status([string]$Message,[switch]$ErrorState) {
@@ -87,12 +91,12 @@ function Show-Profile($Entry) {
     $ui.V1.Text='–'; $ui.V2.Text='–'; $ui.V3.Text='–'
     $ui.K1.Text='SPIELE'; $ui.K2.Text='TORE'; $ui.K3.Text='GEGENTORE'
     if ($null -eq $Entry) {
-        $ui.Badge.Text='SOCCER OVERVIEW'; $ui.Profile.Text='Spielanalyse'; $ui.Meta.Text='Wähle links einen Club oder Spieler.'
+        $ui.Badge.Text='SOCCER OVERVIEW'; $ui.Profile.Text='Spielanalyse'; $ui.Meta.Text='Suche links einen Club oder Spieler, um seine Saison zu analysieren.'
         $ui.SeriesTitle.Text='Saisonvergleich'; $ui.BalanceTitle.Text='Saisonbilanz'; $ui.PinButton.Content='Favorit speichern'
         Add-ChartNote $ui.SeriesPanel 'Hier erscheinen die Werte der ausgewählten Saison.'
         return
     }
-    $ui.SourceTag.Text = if ($Entry.Quelle -eq 'Demo') { 'DEMODATEN · FIKTIV' } elseif ($state.tab -eq 'Favoriten') { 'LOKAL GESPEICHERT' } else { 'API-FOOTBALL' }
+    $ui.SourceTag.Text = if ($state.tab -eq 'Favoriten') { 'LOKAL GESPEICHERT' } else { 'API-FOOTBALL' }
     $ui.Badge.Text = ('{0}   /   SAISON {1}' -f $Entry.Typ.ToUpperInvariant(), (Format-Value $Entry.Saison))
     $ui.Profile.Text=$Entry.Name
     $player=$Entry.Typ -eq 'Spieler'
@@ -137,7 +141,7 @@ function Start-LiveRequest([string]$Kind,[hashtable]$Options) {
     }).AddArgument((Join-Path $SoccerRoot 'src/Soccer.ps1')).AddArgument($Kind).AddArgument($Options)
     try { $handle=$shell.BeginInvoke() } catch { $shell.Dispose(); throw }
     $state.job=@{Shell=$shell;Handle=$handle;Kind=$Kind}
-    $ui.SearchFields.IsEnabled=$false; $ui.Results.IsEnabled=$false; $ui.SourceBox.IsEnabled=$false
+    $ui.SearchFields.IsEnabled=$false; $ui.Results.IsEnabled=$false; $ui.ApplyKey.IsEnabled=$false
     $ui.SearchTab.IsEnabled=$false; $ui.FavTab.IsEnabled=$false
     Set-Status 'API-Football lädt …'; $timer.Start()
 }
@@ -147,15 +151,10 @@ function Find-Selection {
         if ($ui.Season.Text -notmatch '^(19|20)[0-9]{2}$') { throw 'Gib das vierstellige Startjahr der Saison ein.' }
         $options=@{Typ=[string]$ui.TypeBox.SelectedItem.Content; Suche=$ui.Query.Text; Saison=[int]$ui.Season.Text}
         Set-Results @()
-        if ($ui.SourceBox.SelectedIndex -eq 0) {
-            $rows=@(Find-SoccerEntry @options -Demo)
-            Set-Status 'Demo · Fiktive Werte für die Saison 2024.'
-            Set-Results $rows -AutoSelect
-            if (!$rows.Count) { Set-Status 'Keine Demotreffer. Wähle Saison 2024 und suche z. B. Arsenal oder Haaland.' }
-        } else {
-            if ($options.Suche.Trim().Length -lt 4) { throw 'Gib für die Live-Suche mindestens vier Zeichen ein.' }
-            Start-LiveRequest 'Suche' $options
-        }
+        if (!$state.apiKey) { throw 'API-Key fehlt. Gib den Schlüssel oben ein und wähle «Key setzen».' }
+        if ($options.Suche.Trim().Length -lt 4) { throw 'Gib mindestens vier Zeichen für die Suche ein.' }
+        $options.ApiKey=$state.apiKey
+        Start-LiveRequest 'Suche' $options
     } catch { Set-Status $_.Exception.Message -ErrorState }
 }
 function Read-Favorites {
@@ -170,8 +169,10 @@ function Show-Tab([string]$Name) {
     $ui.SearchTab.Background=if ($search) { '#C9EDDA' } else { '#EAF0EC' }
     $ui.FavTab.Background=if ($search) { '#EAF0EC' } else { '#C9EDDA' }
     if ($search) {
-        if ($ui.SourceBox.SelectedIndex -eq 0) { Find-Selection }
-        else { Set-Results @(); Set-Status 'Live-Suche · Clubname oder Nachname eingeben und Suchen wählen.' }
+        Set-Results @()
+        if ($state.apiKey) { Set-Status 'API-Football · Clubname oder Nachname eingeben und Suchen wählen.' }
+        else { Set-Status 'Gib oben deinen API-Football-Key ein. Gespeicherte Favoriten kannst du auch offline öffnen.' }
+
     } else {
         try {
             Read-Favorites
@@ -187,7 +188,7 @@ $timer.Add_Tick({
     $job=$state.job
     if (!$job -or !$job.Handle.IsCompleted) { return }
     $timer.Stop(); $state.job=$null
-    $ui.SearchFields.IsEnabled=$true; $ui.Results.IsEnabled=$true; $ui.SourceBox.IsEnabled=$true
+    $ui.SearchFields.IsEnabled=$true; $ui.Results.IsEnabled=$true; $ui.ApplyKey.IsEnabled=$true
     $ui.SearchTab.IsEnabled=$true; $ui.FavTab.IsEnabled=$true
     try {
         $rows=@($job.Shell.EndInvoke($job.Handle))
@@ -204,8 +205,8 @@ $ui.Results.Add_SelectionChanged({
     if ($state.updating) { return }
     $item=$ui.Results.SelectedItem
     try {
-        if (!$item -or $state.tab -eq 'Favoriten' -or $item.Quelle -eq 'Demo') { Show-Profile $item }
-        else { Show-Profile $null; Start-LiveRequest 'Detail' @{Entry=$item} }
+        if (!$item -or $state.tab -eq 'Favoriten') { Show-Profile $item }
+        else { Show-Profile $null; Start-LiveRequest 'Detail' @{Entry=$item; ApiKey=$state.apiKey} }
     } catch { Set-Status $_.Exception.Message -ErrorState }
 })
 $ui.PinButton.Add_Click({
@@ -224,10 +225,17 @@ $ui.TypeBox.Add_SelectionChanged({
     $ui.Query.Text=''
     if ($state.tab -eq 'Suche') { Show-Tab 'Suche' }
 })
-$ui.SourceBox.Add_SelectionChanged({
-    if ($ui.SourceBox.SelectedIndex -eq 0) { $ui.Season.Text='2024' }
-    Show-Tab 'Suche'
-})
+function Set-SessionKey {
+    $key=$ui.KeyBox.Password.Trim()
+    if (!$key) { Set-Status 'Gib zuerst deinen API-Football-Key ein.' -ErrorState; return }
+    $state.apiKey=$key
+    $ui.KeyBox.Clear()
+    $ui.KeyStatus.Text='API-Key gesetzt'
+    Set-Status 'Schlüssel für diese Sitzung gesetzt. Starte eine Suche.'
+}
+$ui.KeyStatus.Text=if ($state.apiKey) { 'API-Key gesetzt' } else { 'API-Key fehlt' }
+$ui.ApplyKey.Add_Click({ Set-SessionKey })
+$ui.KeyBox.Add_KeyDown({ param($sender,$e) if ($e.Key -eq 'Return' -and !$state.job) { Set-SessionKey; $e.Handled=$true } })
 $window.Add_Closed({
     $timer.Stop()
     if ($state.job) { $state.job.Shell.Stop(); $state.job.Shell.Dispose(); $state.job=$null }
@@ -235,33 +243,16 @@ $window.Add_Closed({
 Show-Tab 'Suche'
 try { Read-Favorites } catch { Set-Status $_.Exception.Message -ErrorState }
 if ($SmokeTest) {
-    if ($ui.Profile.Text -ne 'Arsenal' -or !$ui.SeriesPanel.Children.Count) { throw 'Clubansicht fehlerhaft.' }
-    if ($PreviewPath) {
-        # Die Vorschau zeigt die echte Demoansicht mit denselben WPF-Elementen.
-        $window.Width=1180; $window.Height=890
-        $window.Show(); $window.UpdateLayout()
-        $window.Dispatcher.Invoke([Action]{}, [Windows.Threading.DispatcherPriority]::ApplicationIdle)
-        $view=$window.Content
-        # Feste Vorschaugrösse, unabhängig von der Auflösung des Windows-Runners.
-        $window.Content=$null
-        $size=[Windows.Size]::new(1160,860)
-        $view.Width=$size.Width; $view.Height=$size.Height
-        $view.Measure($size)
-        $view.Arrange([Windows.Rect]::new($size))
-        $view.UpdateLayout()
-        $bitmap=[Windows.Media.Imaging.RenderTargetBitmap]::new(
-            [int][Math]::Ceiling($view.ActualWidth),[int][Math]::Ceiling($view.ActualHeight),
-            96,96,[Windows.Media.PixelFormats]::Pbgra32)
-        $bitmap.Render($view)
-        $encoder=[Windows.Media.Imaging.PngBitmapEncoder]::new()
-        $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
-        $stream=[IO.File]::Create($PreviewPath)
-        try { $encoder.Save($stream) } finally { $stream.Dispose() }
-        $window.Content=$view
-        $window.Hide()
+    if ($ui.Profile.Text -ne 'Spielanalyse' -or $ui.SeriesPanel.Children.Count -ne 1) { throw 'Startansicht fehlerhaft.' }
+    Show-Tab 'Favoriten'
+    if ($state.saved.Count) {
+        if ($ui.Results.Items.Count -ne $state.saved.Count) { throw 'Favoritenliste fehlerhaft.' }
+        foreach ($profile in $state.saved) {
+            $ui.Results.SelectedItem=$profile
+            if ($ui.Profile.Text -ne $profile.Name -or $ui.V2.Text -ne (Format-Value $profile.Tore)) { throw 'Profilwerte fehlerhaft.' }
+            if ($profile.Serien -and $ui.SeriesPanel.Children.Count -ne $profile.Serien.Count) { throw 'Diagramm fehlerhaft.' }
+        }
     }
-    $ui.TypeBox.SelectedIndex=1; $ui.Query.Text='Haaland'; Find-Selection
-    if ($ui.Profile.Text -ne 'Erling Haaland' -or $ui.V2.Text -ne '31') { throw 'Spieleransicht fehlerhaft.' }
     $window.Close()
     return 'WPF-Smoke-Test bestanden.'
 }

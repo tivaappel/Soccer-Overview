@@ -1,102 +1,68 @@
 # Soccer Overview
 
-Ein Fussball-Dashboard für Windows, geschrieben in PowerShell mit einer WPF-Oberfläche. Suche Clubs und Spieler, vergleiche ihre Saisonwerte und speichere interessante Profile als Favoriten. Die mitgelieferte Demo funktioniert offline.
+Eine Windows-App für die Club- und Spielersuche mit API-Football. Wähle eine Saison, öffne einen Treffer und vergleiche seine echten Statistiken in zwei Diagrammen. Favoriten speichern das angezeigte Profil samt Zahlen auf deinem PC.
 
-## In einer Minute starten
+## Start in drei Schritten
 
-1. Entpacke den gesamten Projektordner auf einem Windows-10- oder Windows-11-PC.
-2. Doppelklicke auf **Start.cmd**. Der Starter öffnet die App mit Windows PowerShell 5.1 im STA-Modus. Zusätzliche Module oder Adminrechte brauchst du für die Demo nicht.
-3. **Arsenal** ist bereits ausgewählt. Oben siehst du Spiele, Tore und Gegentore. Die paarweisen Balken darunter zeigen, wie viele Tore Arsenal in den einzelnen Spielen geschossen und kassiert hat.
-4. Wähle links **Spieler**, tippe **Haaland** und drücke **Enter**. Jetzt zeigen die Balken Tore und Assists pro Wettbewerb. Wähle **Favorit speichern**, öffne **Favoriten** und starte die App neu. Das gespeicherte Profil bleibt verfügbar.
+1. Lade das Repo auf GitHub über **Code → Download ZIP** herunter. Entpacke den ganzen Ordner und öffne **Start.cmd** auf Windows 10 oder 11. Es nutzt Windows PowerShell 5.1 und braucht keine Zusatzmodule.
+2. Kopiere deinen API-Football-Key aus dem [API-Sports-Dashboard](https://dashboard.api-football.com/) in das verdeckte Feld oben rechts und klicke **Key setzen**. Der Key gilt für die laufende Sitzung. Die App speichert ihn weder im Projekt noch in den Favoriten.
+3. Wähle **Club** oder **Spieler**, gib z. B. **Arsenal** oder **Haaland** ein und drücke **Enter**. Bei mehreren Treffern wählst du links den richtigen aus. Die Saison ist das Startjahr des Wettbewerbs, z. B. 2024 für 2024/25. Wähle ein Jahr, das dein API-Tarif abdeckt.
 
-Die Demo enthält Arsenal, Manchester City, Bayern München, Erling Haaland, Bukayo Saka und Jamal Musiala. Wähle **2024** als Saison. Die Zahlen sind erfundene Beispieldaten. Auch eine leere Suche zeigt alle Demo-Einträge der gewählten Kategorie.
+Ohne Schlüssel kannst du echte, bereits gespeicherte Profile unter **Favoriten** öffnen. Bei der ersten Suche füllen sich die Diagramme, sobald API-Football Daten für das gewählte Profil und Jahr liefert.
 
-## Echte Daten mit API-Football
+## Was die Diagramme zeigen
 
-1. Erstelle im [API-Sports-Dashboard](https://dashboard.api-football.com/) einen API-Football-Key. Das Projekt nutzt den direkten API-Sports-Zugang.
-2. Öffne im Projektordner eine PowerShell. Die folgenden Zeilen fragen den Key verdeckt ab, setzen ihn für diese Sitzung und starten die App. Der Key wird weder in einer Projektdatei noch in den Favoriten gespeichert.
-
-   ```powershell
-   $secret = Read-Host 'API-Football-Key' -AsSecureString
-   $env:API_FOOTBALL_KEY = [System.Net.NetworkCredential]::new('', $secret).Password
-   .\Start.cmd
-   ```
-
-3. Wähle oben rechts **Live · API-Football**. Gib mindestens vier Zeichen ein, bei Spielern den **Nachnamen**. Die Saison ist das **Startjahr** des Wettbewerbs, beispielsweise 2024 für 2024/25.
-4. Suche z. B. nach **Arsenal** oder **Haaland**. Wähle bei mehreren Treffern das richtige Profil links aus. Bei genau einem Treffer lädt die App das Profil direkt.
-5. Wähle eine Saison, die dein Tarif freigibt. Kontingent, verfügbare Saisons und Datenabdeckung richten sich nach deinem Konto. Nach dem Test kannst du die Variable mit `Remove-Item Env:\API_FOOTBALL_KEY` aus der Sitzung entfernen.
-
-### Was bei einer Suche passiert
-
-| Schritt | Anfrage oder Skript | Ergebnis |
+| Ansicht | Vergleich | Bilanz |
 |---|---|---|
-| Clubs finden | `GET /teams?search=Arsenal` | Namen, IDs, Land, Stadion und Gründungsjahr |
-| Club öffnen | `GET /fixtures?team=42&season=2024` | Spiele des Clubs für die gewählte Saison |
-| Spieler finden | `GET /players/profiles?search=Haaland` | Namensliste mit Spieler-IDs, unabhängig von der Saison |
-| Spieler öffnen | `GET /players?id=<Spieler-ID>&season=2024` | Statistiken je Team und Wettbewerb |
-| Favorit speichern | `write.ps1 -Eintrag …` | Schreibt das angezeigte Profil samt Diagrammdaten nach `data/football.json` |
-| Favoriten öffnen | `read.ps1` | Liest die lokale Datei, auch offline |
+| Club | Eigene Tore und Gegentore aus den letzten fünf abgeschlossenen Spielen, ältestes zuerst | Siege, Remis und Niederlagen über alle gewerteten Spiele der gewählten Saison |
+| Spieler | Tore und Assists je Wettbewerb und Verein, auch bei einem Transfer | Startelf, Einwechslungen und insgesamt absolvierte Minuten |
 
-Die Basisadresse lautet `https://v3.football.api-sports.io`. `Invoke-FootballApi` sendet den Schlüssel im HTTP-Header `x-apisports-key`, kodiert Suchbegriffe und liest weitere Ergebnisseiten, wenn die API mehrere Seiten meldet. HTTP-Fehler und Fehler im Feld `errors` erscheinen unten im Fenster. API-Anfragen laufen im Hintergrund. [Offizielle API-Dokumentation](https://www.api-football.com/documentation_v3)
+Die Balken eines Diagramms haben dieselbe Skala. **0** bedeutet, dass die API null Aktionen gemeldet hat. **–** bedeutet, dass eine Angabe fehlt. Fehlt ein Teilwert, bleibt auch die zugehörige Gesamtsumme offen.
 
-### Wie die Diagramme rechnen
+Bei Clubs zählen abgeschlossene Spiele mit bekanntem Torstand und Status `FT`, `AET` oder `PEN`. Die Bilanz basiert auf den Toren inklusive Verlängerung. Ein im Elfmeterschiessen entschiedenes Remis zählt nach dieser Definition als Remis. Bei Spielern summiert die App die gelieferten Wettbewerbszeilen. Einwechslungen sind Einsätze minus Startelfeinsätze.
 
-| Ansicht | Erstes Diagramm | Zweites Diagramm |
-|---|---|---|
-| Club | Eigene Tore und Gegentore aus den letzten fünf abgeschlossenen Spielen, ältestes zuerst | Siege, Remis und Niederlagen über alle gewerteten Spiele der Saison |
-| Spieler | Tore und Assists je Wettbewerb und Verein, auch bei einem Transfer | Startelf und Einwechslungen über alle gelieferten Wettbewerbe. Darunter stehen die Spielminuten. |
+## Vom Skript bis zur API
 
-- Clubdaten berücksichtigen die beendeten Spiele mit Status `FT`, `AET` und `PEN` und bekanntem Torstand. Die Bilanz basiert auf den Spieltoren inklusive Verlängerung. Ein im Elfmeterschiessen entschiedenes Remis zählt in dieser Bilanz als Remis.
-- Bei Spielern werden die gelieferten Wettbewerbszeilen summiert. Einwechslungen entsprechen Einsätzen minus Startelfeinsätzen.
-- Alle Balken innerhalb eines Diagramms verwenden dieselbe Skala. Eine **0** ist ein bekannter Nullwert. Ein **–** steht für eine fehlende Angabe. Fehlt ein Teilwert, erscheint auch die entsprechende Gesamtsumme als unbekannt.
-
-## Welche Datei macht was?
-
-| Datei | Aufgabe |
+| Was du machst | Was die App ausführt |
 |---|---|
-| `Start.cmd` | Öffnet PowerShell mit den passenden Optionen. Die Ausführungsrichtlinie gilt nur für diesen Prozess. |
-| `Start.ps1` | Lädt das Fenster, verarbeitet Klicks und Suchanfragen, zeichnet Balken aus den ausgewählten Daten. |
-| `ui/Dashboard.xaml` | Enthält Layout, Farben, Navigation und Steuerelemente des Fensters. |
-| `src/Soccer.ps1` | Enthält die Datenlogik für Suche, API-Aufrufe, Statistikberechnung und den lokalen Speicher. |
-| `write.ps1` | Speichert Profile, aktualisiert bestehende Einträge und kann einen Favoriten entfernen. |
-| `read.ps1` | Gibt gespeicherte Einträge als PowerShell-Objekte zurück. |
-| `demo/saison.json` | Enthält die mitgelieferten fiktiven Daten. |
-| `tests/Test.ps1` | Prüft Suche, API-Verarbeitung, Statistikwerte und den Speicher. Auf Windows prüft es zusätzlich die WPF-Ansichten. |
+| App starten | `Start.cmd` öffnet `Start.ps1` im STA-Modus. Es lädt `ui/Dashboard.xaml`, verbindet die Bedienfelder und liest die Favoriten ein. |
+| Club suchen | `GET /teams?search=Arsenal` liefert IDs, Namen, Land und Stadion. |
+| Club öffnen | `GET /fixtures?team=42&season=2024` liefert die Spiele. `src/Soccer.ps1` berechnet daraus Saisonbilanz und Torverlauf aus Sicht des Clubs. |
+| Spieler suchen | `GET /players/profiles?search=Haaland` sucht nach dem Nachnamen und liefert Spieler-IDs. |
+| Spieler öffnen | `GET /players?id=<Spieler-ID>&season=2024` liefert die Saisonstatistiken je Verein und Wettbewerb. |
+| Favorit speichern | `write.ps1` schreibt den ausgewählten Stand nach `data/football.json`. Die gleiche ID, Kategorie und Saison aktualisieren den bestehenden Eintrag. |
+| Favoriten öffnen | `read.ps1` liest die JSON-Datei. Um Daten zu aktualisieren, suche das Profil erneut und speichere es. |
 
-### Skripte ohne Oberfläche benutzen
+Die API-Basisadresse lautet `https://v3.football.api-sports.io`. Die Funktion `Invoke-FootballApi` sendet den Key im Header `x-apisports-key`, kodiert Suchbegriffe und verarbeitet weitere Ergebnisseiten. Netzwerkzugriffe laufen ausserhalb des UI-Threads. Die Statuszeile meldet auch Fehler, die der Anbieter in einer HTTP-200-Antwort zurückgibt. [Offizielle API-Dokumentation](https://www.api-football.com/documentation_v3)
 
-Im Projektordner ausführen. Die ersten beiden Beispiele funktionieren ohne API-Key.
+## PowerShell ohne Oberfläche
+
+Öffne PowerShell im Projektordner. Für eine Live-Abfrage kannst du den Schlüssel verdeckt für die aktuelle Sitzung setzen. Die GUI übernimmt die Variable ebenfalls.
 
 ```powershell
-.\write.ps1 -Typ Spieler -Suche Haaland -Saison 2024 -Demo
-.\read.ps1 -Typ Spieler -Suche Haaland | Format-Table Name, Saison, Tore, Assists
+$secret = Read-Host 'API-Football-Key' -AsSecureString
+$env:API_FOOTBALL_KEY = [System.Net.NetworkCredential]::new('', $secret).Password
 
-# Live mit dem zuvor gesetzten API_FOOTBALL_KEY
-.\write.ps1 -Typ Club -Suche Arsenal -Saison 2024
-.\read.ps1 -Typ Club | Select-Object Name, Stadion, Saison, Tore, Gegentore
+.\write.ps1 -Typ Spieler -Suche Haaland -Saison 2024
+.\read.ps1 -Typ Spieler -Suche Haaland | Format-Table Name, Saison, Tore, Assists
 ```
 
-Das CLI lädt und speichert **alle Treffer** einer Suche. In der Oberfläche kannst du einen einzelnen Treffer öffnen und speichern. Beide Wege benutzen dieselben Datenfunktionen. Mit `-DataFile` kannst du eine andere JSON-Datei wählen.
+Die CLI speichert alle Treffer der Suche, die GUI nur das von dir gewählte Profil. Mit `-DataFile` kannst du einen anderen Speicherpfad verwenden. Gleichzeitige Schreibzugriffe werden serialisiert. Bei beschädigtem JSON wird die vorhandene Datei geschützt.
 
-### Lokaler Speicher
+## Wenn Daten fehlen
 
-Beim Start liest die App die Anzahl gespeicherter Favoriten ein. Beim Öffnen von **Favoriten** liest sie die Datei erneut. Der Ordner `data` entsteht beim ersten Speichern. Ein Profil ist über Quelle, Typ, API-ID und Saison identifiziert. Erneutes Speichern aktualisiert denselben Eintrag. Demo- und Live-Daten bleiben getrennt.
-
-Das Datenformat behält die Liste `Eintraege` der ursprünglichen Skripte bei. Ältere Einträge kannst du weiterhin lesen. Wenn ihnen Diagrammdaten fehlen, suche das Profil im Live-Modus erneut und speichere es für die gewünschte Saison. Eine beschädigte Datei führt zu einer Fehlermeldung und wird beim Speichern nicht überschrieben.
-
-## Fehler finden und Tests ausführen
-
-| Was du siehst | Was du prüfen kannst |
+| Meldung | Was du prüfen kannst |
 |---|---|
-| Die Demo liefert keine Treffer | Wähle Saison 2024, die richtige Kategorie und lasse den Suchbegriff leer. |
-| API-Key fehlt | Setze die Variable und starte die App aus derselben PowerShell. |
-| Plan-, Kontingent- oder HTTP-Fehler | Lies die Statuszeile, prüfe Tarif und Saison im API-Dashboard. |
-| Profil gefunden, aber keine Balken | Für diesen Treffer und diese Saison fehlen auswertbare Daten. Probiere eine Saison mit Datenabdeckung. |
-| Windows blockiert das Skript | Nutze den mitgelieferten Starter. Bei verwalteten Geräten können Richtlinien deiner Organisation gelten. |
-| Die lokale Datei ist beschädigt | Sichere `data/football.json` und prüfe das JSON. Du kannst die Datei umbenennen und mit einer leeren Favoritenliste starten. |
+| **API-Key fehlt** | Schlüssel oben eingeben und **Key setzen** wählen. Alternativ die App aus einer PowerShell mit gesetzter Umgebungsvariable starten. |
+| **Keine Treffer** | Mindestens vier Zeichen verwenden. Bei Spielern nach dem Nachnamen suchen. |
+| **Saison gesperrt oder Limit erreicht** | Tarif, freigegebene Saisons und verbleibende Anfragen im API-Dashboard prüfen. |
+| **Profil ohne Statistik** | Für diesen Treffer und dieses Jahr gibt es keine auswertbaren Daten. Ein anderes abgedecktes Jahr wählen. |
+| **Lokale Daten konnten nicht gelesen werden** | `data/football.json` sichern und das JSON prüfen. Um die Favoritenliste neu aufzubauen, die Datei umbenennen. |
+
+## Tests
 
 ```powershell
 powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\tests\Test.ps1
 ```
 
-Die Tests verwenden temporäre Dateien und simulierte HTTP-Antworten. Sie prüfen auch Pagination, `null` gegenüber null Toren, alte Speicherdateien und beschädigtes JSON. Der Windows-Smoke-Test lädt das echte WPF-Fenster und wechselt zwischen Club- und Spieleransicht. Die Datenlogik lässt sich mit PowerShell 7 auch auf Linux oder macOS testen.
+Die Tests prüfen die Verarbeitung von API-Antworten, fehlende Werte, Diagrammrechnungen, Favoriten und ältere Speicherdateien ohne Verbrauch deines API-Kontingents. Unter Windows testen sie zusätzlich die echte WPF-Oberfläche. [Windows-Testläufe auf GitHub](https://github.com/tivaappel/Soccer-Overview/actions/workflows/windows.yml)

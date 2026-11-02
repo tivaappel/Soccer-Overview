@@ -12,30 +12,7 @@ $dir=Join-Path ([IO.Path]::GetTempPath()) ('soccer-test-'+[guid]::NewGuid())
 [void][IO.Directory]::CreateDirectory($dir)
 $file=Join-Path $dir 'football.json'
 try {
-    $clubs=@(Find-SoccerEntry Club '' 2024 -Demo)
-    Verify ($clubs.Count -eq 3) 'Demo liefert drei Clubs'
-    $player=@(Find-SoccerEntry Spieler Haaland 2024 -Demo)
-    Verify ($player.Count -eq 1 -and $player[0].Tore -eq 31) 'Spielersuche und Diagrammsumme'
-    Verify (@(Find-SoccerEntry Club Arsenal 2023 -Demo).Count -eq 0) 'Falsche Saison erzeugt keine Beispieldaten'
     Verify (@(& (Join-Path $root 'read.ps1') -DataFile $file).Count -eq 0) 'Erster Start ohne Datendatei'
-    & (Join-Path $root 'write.ps1') -Typ Spieler -Suche Haaland -Saison 2024 -Demo -DataFile $file | Out-Null
-    & (Join-Path $root 'write.ps1') -Eintrag $player[0] -DataFile $file
-    & (Join-Path $root 'write.ps1') -Eintrag $clubs[0] -DataFile $file
-    $all=@(& (Join-Path $root 'read.ps1') -DataFile $file)
-    Verify ($all.Count -eq 2) 'Erneutes Speichern aktualisiert denselben Favoriten'
-    $filtered=@(& (Join-Path $root 'read.ps1') -Typ Spieler -Suche 'Haaland' -DataFile $file)
-    Verify ($filtered.Count -eq 1 -and $filtered[0].Serien.Count -eq 3) 'Read-Filter und Diagramme nach Neustart'
-    & (Join-Path $root 'write.ps1') -Eintrag $clubs[0] -Entfernen -DataFile $file
-    Verify (@(Read-SoccerStore $file).Count -eq 1) 'Gezieltes Entfernen'
-    & (Join-Path $root 'write.ps1') -Eintrag $player[0] -Entfernen -DataFile $file
-    Verify (@(Read-SoccerStore $file).Count -eq 0) 'Letzten Favoriten entfernen'
-    [IO.File]::WriteAllText($file,'{"Eintraege":[{"Typ":"Club","Id":42,"Name":"Arsenal","Saison":null}]}')
-    Update-SoccerStore $file $clubs
-    Verify (@(Read-SoccerStore $file).Count -eq 4) 'Altes Schema bleibt lesbar, Demodaten getrennt'
-    [IO.File]::WriteAllText($file,'{ kaputt')
-    $failed=$false
-    try { Update-SoccerStore $file $clubs } catch { $failed=$true }
-    Verify ($failed -and [IO.File]::ReadAllText($file) -eq '{ kaputt') 'Ungültige JSON-Datei bleibt intakt'
     $missing=$false
     try { Find-SoccerEntry Spieler Haaland 2024 -ApiKey '' } catch { $missing=$_.Exception.Message -like '*API-Key*' }
     Verify $missing 'Fehlender Schlüssel wird erklärt'
@@ -78,10 +55,29 @@ try {
     $failed=$false
     try { Invoke-FootballApi 'status-test' @{} 'test-only' } catch { $failed=$_.Exception.Message -like '*Saison gesperrt*' }
     Verify $failed 'HTTP 200 mit API-Fehler wird erkannt'
+    & (Join-Path $root 'write.ps1') -Typ Club -Suche 'Test FC' -Saison 2024 -ApiKey 'test-only' -DataFile $file | Out-Null
+    & (Join-Path $root 'write.ps1') -Eintrag $p -DataFile $file
+    & (Join-Path $root 'write.ps1') -Eintrag $c -DataFile $file
+    Verify (@(Read-SoccerStore $file).Count -eq 2) 'Erneutes Speichern aktualisiert denselben Favoriten'
+    $filtered=@(& (Join-Path $root 'read.ps1') -Typ Spieler -Suche 'Test 1' -DataFile $file)
+    Verify ($filtered.Count -eq 1 -and $filtered[0].Serien.Count -eq 2) 'Profil und Diagrammdaten nach Neustart'
+    $guiFile=Join-Path $dir 'gui.json'
+    Copy-Item $file $guiFile
+    & (Join-Path $root 'write.ps1') -Eintrag $p -Entfernen -DataFile $file
+    Verify (@(Read-SoccerStore $file).Count -eq 1) 'Gezieltes Entfernen'
+    & (Join-Path $root 'write.ps1') -Eintrag $c -Entfernen -DataFile $file
+    Verify (@(Read-SoccerStore $file).Count -eq 0) 'Letzten Favoriten entfernen'
+    [IO.File]::WriteAllText($file,'{"Eintraege":[{"Typ":"Club","Id":42,"Name":"Arsenal","Saison":null},{"Typ":"Club","Id":10,"Name":"Beispiel","Quelle":"Testbestand"}]}')
+    Update-SoccerStore $file @($c)
+    Verify (@(Read-SoccerStore $file).Count -eq 2) 'Alte API-Einträge lesbar, fremde Datenquellen ausgeschlossen'
+    [IO.File]::WriteAllText($file,'{ kaputt')
+    $failed=$false
+    try { Update-SoccerStore $file @($c) } catch { $failed=$true }
+    Verify ($failed -and [IO.File]::ReadAllText($file) -eq '{ kaputt') 'Ungültige JSON-Datei bleibt intakt'
     $doc=[xml](Get-Content (Join-Path $root 'ui/Dashboard.xaml') -Encoding UTF8 -Raw)
     Verify ($doc.DocumentElement.LocalName -eq 'Window') 'Dashboard-XAML ist gültiges XML'
     if ($env:OS -eq 'Windows_NT') {
-        $result=& (Join-Path $root 'Start.ps1') -SmokeTest -DataFile (Join-Path $dir 'gui.json')
+        $result=& (Join-Path $root 'Start.ps1') -SmokeTest -DataFile $guiFile
         Verify ($result -contains 'WPF-Smoke-Test bestanden.') 'WPF lädt, Club- und Spieleransicht wechseln'
     } else { Write-Host 'WPF-Smoke-Test übersprungen (nur Windows).' }
 } finally { Remove-Item -LiteralPath $dir -Recurse -Force }
