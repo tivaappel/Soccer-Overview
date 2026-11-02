@@ -2,7 +2,7 @@
 $SoccerRoot = Split-Path $PSScriptRoot -Parent
 
 function Invoke-FootballApi {
-    param([string]$Endpoint, [hashtable]$Query, [string]$ApiKey)
+    param([string]$Endpoint, [hashtable]$Query, [string]$ApiKey, [switch]$FirstPage)
     if ([string]::IsNullOrWhiteSpace($ApiKey)) {
         throw 'Live-Modus braucht einen API-Key. Gib oben im Fenster den Schlüssel ein oder setze API_FOOTBALL_KEY vor dem Start.'
     }
@@ -26,22 +26,43 @@ function Invoke-FootballApi {
         }
         foreach ($item in $data.response) { if ($null -ne $item) { $item } }
         $page++
-    } while ($page -le [int]$data.paging.total)
+    } while (!$FirstPage -and $page -le [int]$data.paging.total)
+}
+
+function Get-SoccerPicture {
+    param([string]$Url, [ValidateSet('teams','players','leagues')][string]$Kind, $Id)
+    $address=$null
+    if ([uri]::TryCreate($Url,[UriKind]::Absolute,[ref]$address) -and
+        $address.Scheme -eq 'https' -and $address.Host.EndsWith('.api-sports.io')) {
+        return $address.AbsoluteUri
+    }
+    if ([int]$Id -gt 0) { return "https://media.api-sports.io/football/$Kind/$Id.png" }
+}
+
+function Get-SoccerSeasons {
+    param($Entry, [string]$ApiKey=$env:API_FOOTBALL_KEY)
+    if ($Entry.Typ -eq 'Club') {
+        $years=Invoke-FootballApi 'teams/seasons' @{team=$Entry.Id} $ApiKey
+    } else {
+        $years=Invoke-FootballApi 'players/seasons' @{player=$Entry.Id} $ApiKey
+    }
+    $years | Where-Object { [string]$_ -match '^(19|20)[0-9]{2}$' } |
+        ForEach-Object { [int]$_ } | Sort-Object -Descending -Unique
 }
 
 function Find-SoccerEntry {
     param([ValidateSet('Club','Spieler')][string]$Typ, [string]$Suche, [int]$Saison,
-          [string]$ApiKey = $env:API_FOOTBALL_KEY)
+          [string]$ApiKey = $env:API_FOOTBALL_KEY, [switch]$FirstPage)
     $term = $Suche.Trim()
     if ($term.Length -lt 4) { throw 'Gib für die Live-Suche mindestens vier Zeichen ein.' }
     $path = if ($Typ -eq 'Club') { 'teams' } else { 'players/profiles' }
-    foreach ($item in (Invoke-FootballApi $path @{search=$term} $ApiKey)) {
+    foreach ($item in (Invoke-FootballApi $path @{search=$term} $ApiKey -FirstPage:$FirstPage)) {
         if ($Typ -eq 'Club') {
             $id = $item.team.id; $name = $item.team.name; $country = $item.team.country
-            $logo = $item.team.logo; $stadium = $item.venue.name; $founded = $item.team.founded
+            $logo = Get-SoccerPicture $item.team.logo teams $id; $stadium = $item.venue.name; $founded = $item.team.founded
         } else {
             $id = $item.player.id; $name = $item.player.name; $country = $item.player.nationality
-            $logo = $item.player.photo; $stadium = $null; $founded = $null
+            $logo = Get-SoccerPicture $item.player.photo players $id; $stadium = $null; $founded = $null
         }
         [pscustomobject]@{ Typ=$Typ; Id=$id; Name=$name; Land=$country; Logo=$logo; Stadion=$stadium
             Gruendungsjahr=$founded; Saison=$Saison; Quelle='API-Football' }
@@ -73,6 +94,9 @@ function Get-SoccerDetail {
             $extra.Minuten = Get-KnownTotal ($stats | ForEach-Object { $_.games.minutes })
             $extra.Serien = @(foreach ($s in $stats) {
                 [pscustomobject]@{ Label=("$($s.league.name) · $($s.team.name)")
+                    Wettbewerb=$s.league.name; Team=$s.team.name
+                    LigaLogo=(Get-SoccerPicture $s.league.logo leagues $s.league.id)
+                    TeamLogo=(Get-SoccerPicture $s.team.logo teams $s.team.id)
                     A=$s.goals.total; B=$s.goals.assists }
             })
         } else { $extra.Hinweis = 'Keine Spielerstatistik für diese Saison verfügbar.' }
@@ -86,6 +110,11 @@ function Get-SoccerDetail {
             else { $a=$f.goals.away; $b=$f.goals.home; $opp=$f.teams.home.name }
             $date = [DateTimeOffset]::FromUnixTimeSeconds([long]$f.fixture.timestamp).UtcDateTime
             [pscustomobject]@{ Label=("{0:dd.MM.} · {1}" -f $date,$opp)
+                Datum=$date.ToString('dd.MM.yyyy'); Heim=$f.teams.home.name; Gast=$f.teams.away.name
+                HeimLogo=(Get-SoccerPicture $f.teams.home.logo teams $f.teams.home.id)
+                GastLogo=(Get-SoccerPicture $f.teams.away.logo teams $f.teams.away.id)
+                HeimTore=$f.goals.home; GastTore=$f.goals.away; Status=$f.fixture.status.short
+                ElferHeim=$f.score.penalty.home; ElferGast=$f.score.penalty.away
                 A=[int]$a; B=[int]$b }
         })
         if ($games.Count) {

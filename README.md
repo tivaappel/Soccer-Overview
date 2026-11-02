@@ -1,23 +1,24 @@
 # Soccer Overview
 
-Eine Windows-App für die Club- und Spielersuche mit API-Football. Wähle eine Saison, öffne einen Treffer und vergleiche seine echten Statistiken in zwei Diagrammen. Favoriten speichern das angezeigte Profil samt Zahlen auf deinem PC.
+Eine Windows-App für die Club- und Spielersuche mit API-Football. Tippe einen Namen ein, wähle ein Profil und lies Ergebnisse und Statistiken auf der Stadiontafel. Favoriten speichern das angezeigte Profil samt Zahlen auf deinem PC.
 
 ## Start in drei Schritten
 
 1. Lade das Repo auf GitHub über **Code → Download ZIP** herunter. Entpacke den ganzen Ordner und öffne **Start.cmd** auf Windows 10 oder 11. Es nutzt Windows PowerShell 5.1 und braucht keine Zusatzmodule.
 2. Kopiere deinen API-Football-Key aus dem [API-Sports-Dashboard](https://dashboard.api-football.com/) in das verdeckte Feld oben rechts und klicke **Key setzen**. Der Key gilt für die laufende Sitzung. Die App speichert ihn weder im Projekt noch in den Favoriten.
-3. Wähle **Club** oder **Spieler**, gib z. B. **Arsenal** oder **Haaland** ein und drücke **Enter**. Bei mehreren Treffern wählst du links den richtigen aus. Die Saison ist das Startjahr des Wettbewerbs, z. B. 2024 für 2024/25. Wähle ein Jahr, das dein API-Tarif abdeckt.
+3. Wähle **Club** oder **Spieler** und tippe mindestens vier Zeichen, z. B. **Arse** oder **Haal**. Nach einer kurzen Schreibpause erscheinen bis zu zwölf Vorschläge mit Logo oder Foto. Klicke einen an, oder öffne mit **↓** den ersten Treffer. **Enter** oder **Suchen** ruft die vollständige Trefferliste ab.
+4. Nach der Profilauswahl lädt die App seine verfügbaren Saisons und öffnet die neueste. Über **Saison** kannst du zu einem anderen Jahr wechseln. Angezeigt wird das Startjahr, z. B. 2024 für eine Saison 2024/25. Wenn die API einen freigegebenen Jahresbereich für deinen Tarif meldet, berücksichtigt die App ihn bei der Auswahl.
 
-Ohne Schlüssel kannst du echte, bereits gespeicherte Profile unter **Favoriten** öffnen. Bei der ersten Suche füllen sich die Diagramme, sobald API-Football Daten für das gewählte Profil und Jahr liefert.
+Unter **Favoriten** kannst du gespeicherte Zahlen auch offline lesen. Spielerfotos sowie Vereins- und Wettbewerbslogos lädt die App direkt vom Bilderdienst von API-Sports. Fehlt ein Bild, bleibt die Tafel mit einem neutralen Wappen lesbar.
 
-## Was die Diagramme zeigen
+## Was auf der Stadiontafel steht
 
-| Ansicht | Vergleich | Bilanz |
+| Ansicht | Anzeige | Saisonbilanz |
 |---|---|---|
-| Club | Eigene Tore und Gegentore aus den letzten fünf abgeschlossenen Spielen, ältestes zuerst | Siege, Remis und Niederlagen über alle gewerteten Spiele der gewählten Saison |
-| Spieler | Tore und Assists je Wettbewerb und Verein, auch bei einem Transfer | Startelf, Einwechslungen und insgesamt absolvierte Minuten |
+| Club | Die letzten fünf abgeschlossenen Spiele, neuestes zuerst. Links steht das Heimteam, rechts das Auswärtsteam, in der Mitte der Spielstand. Bei einem Elfmeterschiessen steht auch dessen Ergebnis dabei. | Spiele, Tore, Gegentore, Siege, Remis und Niederlagen |
+| Spieler | Tore und Assists als getrennte Zahlen pro Wettbewerb und Verein, mit Spielerfoto und Logos | Einsätze, Tore, Assists, Startelfeinsätze, Einwechslungen und Minuten |
 
-Die Balken eines Diagramms haben dieselbe Skala. **0** bedeutet, dass die API null Aktionen gemeldet hat. **–** bedeutet, dass eine Angabe fehlt. Fehlt ein Teilwert, bleibt auch die zugehörige Gesamtsumme offen.
+**0** steht für einen gemeldeten Nullwert. **–** bedeutet, dass eine Angabe fehlt. Bei älteren Favoriten ohne gespeicherte Heim- und Gastzuordnung ist das Ergebnis als **Clubsicht** gekennzeichnet. Erneut suchen und speichern ergänzt die vollständigen Daten.
 
 Bei Clubs zählen abgeschlossene Spiele mit bekanntem Torstand und Status `FT`, `AET` oder `PEN`. Die Bilanz basiert auf den Toren inklusive Verlängerung. Ein im Elfmeterschiessen entschiedenes Remis zählt nach dieser Definition als Remis. Bei Spielern summiert die App die gelieferten Wettbewerbszeilen. Einwechslungen sind Einsätze minus Startelfeinsätze.
 
@@ -27,7 +28,8 @@ Bei Clubs zählen abgeschlossene Spiele mit bekanntem Torstand und Status `FT`, 
 |---|---|
 | App starten | `Start.cmd` öffnet `Start.ps1` im STA-Modus. Es lädt `ui/Dashboard.xaml`, verbindet die Bedienfelder und liest die Favoriten ein. |
 | Club suchen | `GET /teams?search=Arsenal` liefert IDs, Namen, Land und Stadion. |
-| Club öffnen | `GET /fixtures?team=42&season=2024` liefert die Spiele. `src/Soccer.ps1` berechnet daraus Saisonbilanz und Torverlauf aus Sicht des Clubs. |
+| Saisons laden | `GET /teams/seasons?team=42` bzw. `GET /players/seasons?player=<Spieler-ID>` liefert die erfassten Jahre für das ausgewählte Profil. Die Auswahl zeigt sie absteigend und ohne Duplikate. |
+| Club öffnen | `GET /fixtures?team=42&season=2024` liefert die Spiele. `src/Soccer.ps1` berechnet daraus Saisonbilanz und die letzten Resultate in Heim-/Gastreihenfolge. |
 | Spieler suchen | `GET /players/profiles?search=Haaland` sucht nach dem Nachnamen und liefert Spieler-IDs. |
 | Spieler öffnen | `GET /players?id=<Spieler-ID>&season=2024` liefert die Saisonstatistiken je Verein und Wettbewerb. |
 | Favorit speichern | `write.ps1` schreibt den ausgewählten Stand nach `data/football.json`. Die gleiche ID, Kategorie und Saison aktualisieren den bestehenden Eintrag. |
@@ -65,4 +67,4 @@ Die CLI speichert alle Treffer der Suche, die GUI nur das von dir gewählte Prof
 powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\tests\Test.ps1
 ```
 
-Die Tests prüfen die Verarbeitung von API-Antworten, fehlende Werte, Diagrammrechnungen, Favoriten und ältere Speicherdateien ohne Verbrauch deines API-Kontingents. Unter Windows testen sie zusätzlich die echte WPF-Oberfläche. [Windows-Testläufe auf GitHub](https://github.com/tivaappel/Soccer-Overview/actions/workflows/windows.yml)
+Die Tests prüfen Suchvorschläge, Saisonwahl, Bildadressen, Heim-/Auswärtsergebnisse, fehlende Werte, Favoriten und ältere Speicherdateien ohne Verbrauch deines API-Kontingents. Unter Windows testen sie zusätzlich die echte WPF-Oberfläche. [Windows-Testläufe auf GitHub](https://github.com/tivaappel/Soccer-Overview/actions/workflows/windows.yml)

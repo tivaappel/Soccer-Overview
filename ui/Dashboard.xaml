@@ -31,7 +31,47 @@
      <Trigger Property="IsSelected" Value="True"><Setter TargetName="Tile" Property="Background" Value="#DAF1E4"/></Trigger>
     </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
   </Style>
-  <Style x:Key="Count" TargetType="TextBlock"><Setter Property="FontSize" Value="30"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <DrawingImage x:Key="ImageFallback"><DrawingImage.Drawing><DrawingGroup>
+   <GeometryDrawing Brush="#DCE6E2" Geometry="M 0,0 H 48 V 48 H 0 Z"/>
+   <GeometryDrawing Brush="#81998D" Geometry="M 24,8 L 36,12 L 35,25 Q 34,33 24,40 Q 14,33 13,25 L 12,12 Z"/>
+  </DrawingGroup></DrawingImage.Drawing></DrawingImage>
+  <Style x:Key="Digit" TargetType="TextBlock"><Setter Property="FontFamily" Value="Consolas"/>
+   <Setter Property="FontWeight" Value="Bold"/><Setter Property="FontSize" Value="32"/><Setter Property="Foreground" Value="#CCF580"/></Style>
+  <Style x:Key="BoardCard" TargetType="Border"><Setter Property="Background" Value="#172D27"/><Setter Property="CornerRadius" Value="8"/>
+   <Setter Property="Padding" Value="14,10"/><Setter Property="Margin" Value="0,0,0,5"/></Style>
+  <Style x:Key="BoardText" TargetType="TextBlock"><Setter Property="Foreground" Value="#F2F8F5"/><Setter Property="TextWrapping" Value="Wrap"/>
+   <Setter Property="VerticalAlignment" Value="Center"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style x:Key="BoardCaption" TargetType="TextBlock"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="#BCD0C5"/></Style>
+  <DataTemplate x:Key="MatchRow">
+   <Border Style="{StaticResource BoardCard}"><StackPanel>
+    <TextBlock Text="{Binding Caption}" Style="{StaticResource BoardCaption}" HorizontalAlignment="Center"/>
+    <Grid Margin="0,3,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+     <DockPanel VerticalAlignment="Center" Margin="0,0,7,0"><Image DockPanel.Dock="Left" Width="28" Height="28" Margin="0,0,7,0"
+       Source="{Binding LeftLogo,TargetNullValue={StaticResource ImageFallback},FallbackValue={StaticResource ImageFallback}}"/>
+      <TextBlock Text="{Binding Left}" Style="{StaticResource BoardText}"/></DockPanel>
+     <TextBlock Grid.Column="1" Text="{Binding Score}" Style="{StaticResource Digit}" FontSize="27" VerticalAlignment="Center"/>
+     <DockPanel Grid.Column="2" VerticalAlignment="Center" Margin="7,0,0,0"><Image DockPanel.Dock="Right" Width="28" Height="28" Margin="7,0,0,0"
+       Source="{Binding RightLogo,TargetNullValue={StaticResource ImageFallback},FallbackValue={StaticResource ImageFallback}}"/>
+      <TextBlock Text="{Binding Right}" TextAlignment="Right" Style="{StaticResource BoardText}"/></DockPanel>
+    </Grid></StackPanel></Border>
+  </DataTemplate>
+  <DataTemplate x:Key="PlayerRow">
+   <Border Style="{StaticResource BoardCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="64"/><ColumnDefinition Width="64"/></Grid.ColumnDefinitions>
+    <StackPanel VerticalAlignment="Center">
+     <DockPanel><Image DockPanel.Dock="Left" Width="21" Height="21" Margin="0,0,7,0" Source="{Binding LeftLogo,TargetNullValue={StaticResource ImageFallback},FallbackValue={StaticResource ImageFallback}}"/>
+      <TextBlock Text="{Binding Left}" Style="{StaticResource BoardText}"/></DockPanel>
+     <DockPanel Margin="0,3,0,0"><Image DockPanel.Dock="Left" Width="17" Height="17" Margin="2,0,9,0" Source="{Binding RightLogo,TargetNullValue={StaticResource ImageFallback},FallbackValue={StaticResource ImageFallback}}"/>
+      <TextBlock Text="{Binding Right}" Style="{StaticResource BoardCaption}" TextWrapping="Wrap"/></DockPanel>
+    </StackPanel>
+    <StackPanel Grid.Column="1" HorizontalAlignment="Center"><TextBlock Text="TORE" Style="{StaticResource BoardCaption}"/><TextBlock Text="{Binding Goals}" Style="{StaticResource Digit}" FontSize="25"/></StackPanel>
+    <StackPanel Grid.Column="2" HorizontalAlignment="Center"><TextBlock Text="ASSISTS" Style="{StaticResource BoardCaption}"/><TextBlock Text="{Binding Assists}" Style="{StaticResource Digit}" FontSize="25"/></StackPanel>
+   </Grid></Border>
+  </DataTemplate>
+  <DataTemplate x:Key="NumberTile">
+   <Border Style="{StaticResource BoardCard}" Margin="2"><StackPanel><TextBlock Text="{Binding Label}" Style="{StaticResource BoardCaption}"/>
+    <TextBlock Text="{Binding Number}" Style="{StaticResource Digit}"/></StackPanel></Border>
+  </DataTemplate>
+  <ItemsPanelTemplate x:Key="ThreeColumns"><UniformGrid Columns="3"/></ItemsPanelTemplate>
  </Window.Resources>
  <DockPanel LastChildFill="True" Background="#F2F5F2">
   <Border DockPanel.Dock="Top" Background="#102E23" Padding="22,12"><DockPanel>
@@ -61,13 +101,9 @@
        <Button x:Name="SearchTab" Content="Suche"/><Button x:Name="FavTab" Content="Favoriten"/>
       </StackPanel>
       <StackPanel x:Name="SearchFields">
-       <Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="74"/></Grid.ColumnDefinitions>
-        <StackPanel Margin="0,0,8,0"><TextBlock Text="Kategorie" FontSize="12" Margin="0,0,0,3"/>
-         <ComboBox x:Name="TypeBox" AutomationProperties.Name="Kategorie" Padding="6,5" SelectedIndex="0"><ComboBoxItem Content="Club"/><ComboBoxItem Content="Spieler"/></ComboBox>
-        </StackPanel>
-        <StackPanel Grid.Column="1"><TextBlock Text="Saison" FontSize="12" Margin="0,0,0,3"/><TextBox x:Name="Season" AutomationProperties.Name="Saison" MaxLength="4"/></StackPanel>
-       </Grid>
-       <TextBlock x:Name="QueryLabel" Text="Suchbegriff" FontSize="12" Margin="0,0,0,3"/>
+       <TextBlock Text="Kategorie" FontSize="12" Margin="0,0,0,3"/>
+       <ComboBox x:Name="TypeBox" AutomationProperties.Name="Kategorie" Padding="6,5" Margin="0,0,0,9" SelectedIndex="0"><ComboBoxItem Content="Club"/><ComboBoxItem Content="Spieler"/></ComboBox>
+       <TextBlock x:Name="QueryLabel" Text="Name suchen · ab 4 Zeichen" FontSize="12" Margin="0,0,0,3"/>
        <TextBox x:Name="Query" AutomationProperties.Name="Suchbegriff" MaxLength="80" Margin="0,0,0,8"/>
        <Button x:Name="SearchButton" Content="Suchen" Margin="0" Background="#196342" Foreground="White"/>
       </StackPanel>
@@ -75,60 +111,44 @@
       <TextBlock x:Name="ResultsTitle" Style="{StaticResource Kicker}" Margin="0,0,0,6"/>
      </StackPanel>
      <ListBox x:Name="Results" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Treffer oder Favoriten">
-      <ListBox.ItemTemplate><DataTemplate><StackPanel>
-       <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
-       <TextBlock FontSize="11" Foreground="#446555"><Run Text="{Binding Typ, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding Land, Mode=OneWay}"/></TextBlock>
-      </StackPanel></DataTemplate></ListBox.ItemTemplate>
+      <ListBox.ItemTemplate><DataTemplate><DockPanel>
+       <Image DockPanel.Dock="Left" Width="32" Height="32" Margin="0,0,9,0" Source="{Binding Logo,TargetNullValue={StaticResource ImageFallback},FallbackValue={StaticResource ImageFallback}}"/>
+       <StackPanel><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
+        <TextBlock FontSize="11" Foreground="#446555"><Run Text="{Binding Typ,Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding Land,Mode=OneWay}"/></TextBlock>
+       </StackPanel></DockPanel></DataTemplate></ListBox.ItemTemplate>
      </ListBox>
     </DockPanel>
    </Border>
    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="22,18,22,16">
-     <DockPanel Margin="0,0,0,10"><TextBlock Text="ANALYSE  /  SAISONÜBERSICHT" Style="{StaticResource Kicker}"/>
+     <DockPanel Margin="0,0,0,10"><TextBlock Text="MATCH CENTER  /  SAISONÜBERSICHT" Style="{StaticResource Kicker}"/>
       <TextBlock x:Name="SourceTag" HorizontalAlignment="Right" Style="{StaticResource Kicker}"/>
      </DockPanel>
-     <Border CornerRadius="12" Background="#133D2E" ClipToBounds="True" Padding="21,16">
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="0.33*"/></Grid.ColumnDefinitions>
-       <StackPanel VerticalAlignment="Center">
-        <TextBlock x:Name="Badge" Foreground="#C6F671" FontWeight="Bold" FontSize="11"/>
-        <TextBlock x:Name="Profile" Foreground="White" FontSize="33" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,2"/>
-        <TextBlock x:Name="Meta" Foreground="#D0E6D8" TextWrapping="Wrap" FontSize="13"/>
-       </StackPanel>
-       <Viewbox Grid.Column="1" MaxWidth="170" MaxHeight="84" HorizontalAlignment="Right" Opacity="0.88">
-        <Canvas Width="166" Height="82"><Rectangle Width="160" Height="76" Canvas.Left="3" Canvas.Top="3" RadiusX="2" RadiusY="2" Stroke="#609879"/>
-         <Path Stroke="#609879" Data="M83,3 V79 M3,18 H24 V64 H3 M163,18 H142 V64 H163"/>
-         <Ellipse Width="26" Height="26" Canvas.Left="70" Canvas.Top="28" Stroke="#609879"/>
-         <Path Stroke="#CAEE83" StrokeDashArray="3 3" Data="M37,58 L78,20 L118,46 L151,36"/>
-         <Ellipse Fill="#C6F671" Width="7" Height="7" Canvas.Left="34" Canvas.Top="55"/>
-         <Ellipse Fill="#C6F671" Width="7" Height="7" Canvas.Left="75" Canvas.Top="17"/>
-         <Ellipse Fill="#C6F671" Width="7" Height="7" Canvas.Left="115" Canvas.Top="43"/>
-        </Canvas></Viewbox>
-      </Grid>
+     <Border Background="#14382C" CornerRadius="12" Padding="18">
+      <DockPanel><Border DockPanel.Dock="Left" Background="#F7FAF8" Width="76" Height="76" CornerRadius="8" Padding="5" Margin="0,0,15,0">
+       <Image x:Name="Portrait" AutomationProperties.Name="Clublogo oder Spielerfoto" Source="{Binding Logo,TargetNullValue={StaticResource ImageFallback},FallbackValue={StaticResource ImageFallback}}"/>
+      </Border><StackPanel VerticalAlignment="Center"><TextBlock x:Name="Badge" Foreground="#C9EB98" FontSize="11" FontWeight="Bold"/>
+       <TextBlock x:Name="Profile" Foreground="White" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap"/>
+       <TextBlock x:Name="Meta" Foreground="#D3E1D8" TextWrapping="Wrap"/>
+      </StackPanel></DockPanel>
      </Border>
-     <UniformGrid Columns="3" Margin="0,12,0,12">
-      <Border Style="{StaticResource Card}" Margin="0,0,5,0"><StackPanel><TextBlock x:Name="K1" Style="{StaticResource Kicker}"/><TextBlock x:Name="V1" Style="{StaticResource Count}"/></StackPanel></Border>
-      <Border Style="{StaticResource Card}" Margin="3,0"><StackPanel><TextBlock x:Name="K2" Style="{StaticResource Kicker}"/><TextBlock x:Name="V2" Style="{StaticResource Count}"/></StackPanel></Border>
-      <Border Style="{StaticResource Card}" Margin="5,0,0,0"><StackPanel><TextBlock x:Name="K3" Style="{StaticResource Kicker}"/><TextBlock x:Name="V3" Style="{StaticResource Count}"/></StackPanel></Border>
-     </UniformGrid>
-     <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-      <StackPanel>
-       <TextBlock Text="01   /   VERGLEICH" Style="{StaticResource Kicker}"/>
-       <TextBlock x:Name="SeriesTitle" FontSize="21" FontWeight="SemiBold" Margin="0,3,0,6"/>
-       <StackPanel Orientation="Horizontal" Margin="0,0,0,6" x:Name="Legend">
-        <Ellipse Fill="#1D7850" Width="9" Height="9" Margin="0,0,5,0"/><TextBlock x:Name="LegendA" FontSize="12"/>
-        <Ellipse Fill="#5D7EB3" Width="9" Height="9" Margin="16,0,5,0"/><TextBlock x:Name="LegendB" FontSize="12"/>
-       </StackPanel>
-       <StackPanel x:Name="SeriesPanel"/>
-      </StackPanel>
-     </Border>
-     <Border Style="{StaticResource Card}">
-      <StackPanel><DockPanel>
-       <Button DockPanel.Dock="Right" x:Name="PinButton" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0" Content="Favorit speichern"/>
-       <StackPanel><TextBlock Text="02   /   BILANZ" Style="{StaticResource Kicker}"/>
-        <TextBlock x:Name="BalanceTitle" FontSize="20" FontWeight="SemiBold" Margin="0,2"/>
-       </StackPanel>
-      </DockPanel><StackPanel x:Name="BalancePanel" Margin="0,6,0,0"/></StackPanel>
-     </Border>
+     <DockPanel Margin="2,12,2,9">
+      <Button x:Name="PinButton" DockPanel.Dock="Right" Content="Favorit speichern" Margin="5,0,0,0"/>
+      <TextBlock Text="Saison" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <ComboBox x:Name="Season" AutomationProperties.Name="Verfügbare Saisons" Width="102" Padding="6,4" HorizontalAlignment="Left" IsEnabled="False"/>
+     </DockPanel>
+     <ItemsControl x:Name="Totals" ItemsPanel="{StaticResource ThreeColumns}" ItemTemplate="{StaticResource NumberTile}" Margin="0,0,0,9"/>
+     <Border Style="{StaticResource Card}" Margin="0,0,0,10"><StackPanel>
+      <TextBlock Text="01  /  ANZEIGETAFEL" Style="{StaticResource Kicker}"/>
+      <TextBlock x:Name="SeriesTitle" FontWeight="SemiBold" FontSize="21" Margin="0,3,0,8"/>
+      <TextBlock x:Name="EmptyHint" TextWrapping="Wrap" Foreground="#466556"/>
+      <ItemsControl x:Name="Boards"/>
+     </StackPanel></Border>
+     <Border Style="{StaticResource Card}"><StackPanel>
+      <TextBlock Text="02  /  SAISONZAHLEN" Style="{StaticResource Kicker}"/>
+      <TextBlock x:Name="BalanceTitle" FontWeight="SemiBold" FontSize="20" Margin="0,3,0,6"/>
+      <ItemsControl x:Name="Balance" ItemsPanel="{StaticResource ThreeColumns}" ItemTemplate="{StaticResource NumberTile}"/>
+     </StackPanel></Border>
     </StackPanel>
    </ScrollViewer>
   </Grid>

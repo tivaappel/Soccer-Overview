@@ -21,12 +21,17 @@ foreach ($node in $layout.SelectNodes('//*[@x:Name]', $ns)) {
     $control = $window.FindName($name)
     if ($null -ne $control) { $ui[$name] = $control }
 }
-$state = @{ tab='Suche'; entry=$null; saved=@(); job=$null; updating=$false; apiKey=$env:API_FOOTBALL_KEY }
-$today=Get-Date
-$year=$today.Year
-if ($today.Month -lt 7) { $year-- }
-$ui.Season.Text=[string]$year
-$green = '#1D7850'; $blue = '#5D7EB3'
+$state = @{
+    tab='Suche'; entry=$null; saved=@(); updating=$false; apiKey=$env:API_FOOTBALL_KEY
+    revision=0; job=$null; pending=$null; searches=@{}; seasons=@{}; allowedYears=$null
+}
+$window.AddHandler([Windows.Controls.Image]::ImageFailedEvent, [System.EventHandler[Windows.ExceptionRoutedEventArgs]]{
+    param($sender,$event)
+    $event.Handled=$true
+    if ($event.OriginalSource -is [Windows.Controls.Image]) {
+        $event.OriginalSource.SetCurrentValue([Windows.Controls.Image]::SourceProperty,$window.Resources['ImageFallback'])
+    }
+})
 
 function Set-Status([string]$Message,[switch]$ErrorState) {
     $ui.Status.Text=$Message
@@ -36,179 +41,235 @@ function Format-Value($Value) {
     if ($null -eq $Value -or [string]$Value -eq '') { return '–' }
     return [string]$Value
 }
-function Add-ChartNote($Panel,[string]$Message) {
-    $label=[Windows.Controls.TextBlock]::new()
-    $label.Text=$Message; $label.TextWrapping='Wrap'; $label.Foreground='#52695D'
-    $label.Margin='0,4,0,3'; [void]$Panel.Children.Add($label)
+function New-NumberTile([string]$Label,$Value) {
+    [pscustomobject]@{Label=$Label; Number=(Format-Value $Value)}
 }
-function New-BarTrack($Value,[double]$Maximum,[string]$Color) {
-    $row=[Windows.Controls.Grid]::new()
-    $last=[Windows.Controls.ColumnDefinition]::new(); $last.Width=36
-    [void]$row.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]::new())
-    [void]$row.ColumnDefinitions.Add($last)
-    $valueText=[Windows.Controls.TextBlock]::new(); $valueText.Text=(Format-Value $Value)
-    $valueText.FontSize=12; $valueText.TextAlignment='Right'
-    [Windows.Controls.Grid]::SetColumn($valueText,1); [void]$row.Children.Add($valueText)
-    $track=[Windows.Controls.Border]::new(); $track.Height=7; $track.CornerRadius=3
-    $track.Background='#EAF0EC'; $grid=[Windows.Controls.Grid]::new(); $track.Child=$grid
-    if ($null -ne $Value -and [double]$Value -gt 0) {
-        $fill=[Windows.Controls.ColumnDefinition]::new()
-        $fill.Width=[Windows.GridLength]::new([double]$Value,'Star')
-        $space=[Windows.Controls.ColumnDefinition]::new()
-        $space.Width=[Windows.GridLength]::new([Math]::Max(0, $Maximum-[double]$Value),'Star')
-        [void]$grid.ColumnDefinitions.Add($fill); [void]$grid.ColumnDefinitions.Add($space)
-        $bar=[Windows.Controls.Border]::new(); $bar.Background=$Color; $bar.CornerRadius=3
-        [void]$grid.Children.Add($bar)
+function Show-Profile($Entry,[switch]$IdentityOnly) {
+    $player=$null -ne $Entry -and $Entry.Typ -eq 'Spieler'
+    $ready=$null -ne $Entry -and !$IdentityOnly
+    $state.entry=if ($ready) { $Entry }
+    $ui.PinButton.IsEnabled=$ready
+    $ui.PinButton.Content=if ($state.tab -eq 'Favoriten') { 'Favorit entfernen' } else { 'Favorit speichern' }
+    $ui.Portrait.DataContext=$Entry
+    $ui.SourceTag.Text=if (!$Entry) { '' } elseif ($state.tab -eq 'Favoriten') { 'LOKAL GESPEICHERT' } else { 'API-FOOTBALL' }
+    if ($Entry) {
+        $ui.Badge.Text=$Entry.Typ.ToUpperInvariant()
+        if ($ready -and $Entry.Saison) { $ui.Badge.Text+="   /   SAISON $($Entry.Saison)" }
+        $ui.Profile.Text=$Entry.Name
+        $meta=if ($player) { $Entry.Verein; $Entry.Land; $Entry.Position } else { $Entry.Land; $Entry.Stadion; if ($Entry.Gruendungsjahr) { "Gegründet $($Entry.Gruendungsjahr)" } }
+        $ui.Meta.Text=(@($meta | Where-Object { $_ }) -join '  ·  ')
+    } else {
+        $ui.Badge.Text='SOCCER OVERVIEW'; $ui.Profile.Text='Stadiontafel'
+        $ui.Meta.Text='Wähle links einen Club oder Spieler.'
     }
-    [void]$row.Children.Add($track)
-    return $row
-}
-function Add-ChartRows($Panel,[array]$Rows,[switch]$Pair) {
-    if (!$Rows.Count) { Add-ChartNote $Panel 'Für diese Auswahl sind keine Diagrammdaten verfügbar.'; return }
-    $max=1.0
-    foreach ($r in $Rows) { $max=[Math]::Max($max,[double]$r.A); if ($Pair) { $max=[Math]::Max($max,[double]$r.B) } }
-    foreach ($r in $Rows) {
-        $row=[Windows.Controls.Grid]::new(); $row.Margin='0,3,0,3'
-        $left=[Windows.Controls.ColumnDefinition]::new(); $left.Width=[Windows.GridLength]::new(0.85,'Star')
-        $right=[Windows.Controls.ColumnDefinition]::new(); $right.Width=[Windows.GridLength]::new(2,'Star')
-        [void]$row.ColumnDefinitions.Add($left); [void]$row.ColumnDefinitions.Add($right)
-        $label=[Windows.Controls.TextBlock]::new(); $label.Text=$r.Label; $label.FontSize=12
-        $label.VerticalAlignment='Center'; $label.Margin='0,0,10,0'; $label.TextWrapping='Wrap'
-        [void]$row.Children.Add($label)
-        $bars=[Windows.Controls.StackPanel]::new()
-        [void]$bars.Children.Add((New-BarTrack $r.A $max $green))
-        if ($Pair) { [void]$bars.Children.Add((New-BarTrack $r.B $max $blue)) }
-        [Windows.Controls.Grid]::SetColumn($bars,1); [void]$row.Children.Add($bars)
-        [void]$Panel.Children.Add($row)
-    }
-}
-function Show-Profile($Entry) {
-    $state.entry=$Entry
-    $ui.SeriesPanel.Children.Clear(); $ui.BalancePanel.Children.Clear()
-    $ui.PinButton.IsEnabled=$null -ne $Entry
-    $ui.SourceTag.Text=''
-    $ui.Legend.Visibility='Collapsed'
-    $ui.V1.Text='–'; $ui.V2.Text='–'; $ui.V3.Text='–'
-    $ui.K1.Text='SPIELE'; $ui.K2.Text='TORE'; $ui.K3.Text='GEGENTORE'
-    if ($null -eq $Entry) {
-        $ui.Badge.Text='SOCCER OVERVIEW'; $ui.Profile.Text='Spielanalyse'; $ui.Meta.Text='Suche links einen Club oder Spieler, um seine Saison zu analysieren.'
-        $ui.SeriesTitle.Text='Saisonvergleich'; $ui.BalanceTitle.Text='Saisonbilanz'; $ui.PinButton.Content='Favorit speichern'
-        Add-ChartNote $ui.SeriesPanel 'Hier erscheinen die Werte der ausgewählten Saison.'
+    $ui.SeriesTitle.Text=if ($player) { 'Wettbewerbe' } else { 'Letzte Ergebnisse' }
+    $ui.BalanceTitle.Text=if ($player) { 'Einsatzprofil' } else { 'Ergebnisbilanz' }
+    $ui.Totals.ItemsSource=$null; $ui.Balance.ItemsSource=$null; $ui.Boards.ItemsSource=$null
+    $ui.EmptyHint.Visibility='Visible'
+    if (!$ready) {
+        $ui.EmptyHint.Text=if ($Entry) { 'Wähle eine verfügbare Saison für die Anzeigetafel.' } else { 'Gib einen Namen ein und wähle einen Suchvorschlag.' }
         return
     }
-    $ui.SourceTag.Text = if ($state.tab -eq 'Favoriten') { 'LOKAL GESPEICHERT' } else { 'API-FOOTBALL' }
-    $ui.Badge.Text = ('{0}   /   SAISON {1}' -f $Entry.Typ.ToUpperInvariant(), (Format-Value $Entry.Saison))
-    $ui.Profile.Text=$Entry.Name
-    $player=$Entry.Typ -eq 'Spieler'
-    $meta = if ($player) { $Entry.Verein; $Entry.Land; $Entry.Position } else { $Entry.Land; $Entry.Stadion; if ($Entry.Gruendungsjahr) { "Gegründet $($Entry.Gruendungsjahr)" } }
-    $ui.Meta.Text = (@($meta | Where-Object { $_ }) -join '  ·  ')
-    $ui.PinButton.Content = if ($state.tab -eq 'Favoriten') { 'Favorit entfernen' } else { 'Favorit speichern' }
-    $ui.K1.Text=if ($player) { 'EINSÄTZE' } else { 'SPIELE' }; $ui.K3.Text=if ($player) { 'ASSISTS' } else { 'GEGENTORE' }
-    $ui.V1.Text=Format-Value $Entry.Einsaetze; $ui.V2.Text=Format-Value $Entry.Tore
-    $third=if ($player) { $Entry.Assists } else { $Entry.Gegentore }; $ui.V3.Text=Format-Value $third
-    $ui.SeriesTitle.Text=if ($player) { 'Scorer nach Wettbewerb' } else { 'Tore der letzten fünf Spiele' }
-    $ui.LegendA.Text='Tore'; $ui.LegendB.Text=if ($player) { 'Assists' } else { 'Gegentore' }
-    if ($Entry.Serien) { $ui.Legend.Visibility='Visible' }
-    Add-ChartRows $ui.SeriesPanel @($Entry.Serien | Where-Object { $null -ne $_ }) -Pair
-    if ($Entry.Hinweis) { Add-ChartNote $ui.SeriesPanel $Entry.Hinweis }
+    $ui.Totals.ItemsSource=if ($player) {
+        @(New-NumberTile 'EINSÄTZE' $Entry.Einsaetze; New-NumberTile 'TORE' $Entry.Tore; New-NumberTile 'ASSISTS' $Entry.Assists)
+    } else {
+        @(New-NumberTile 'SPIELE' $Entry.Einsaetze; New-NumberTile 'TORE' $Entry.Tore; New-NumberTile 'GEGENTORE' $Entry.Gegentore)
+    }
     if ($player) {
-        $ui.BalanceTitle.Text='Einsatzprofil'
         $sub=$null
         if ($null -ne $Entry.Einsaetze -and $null -ne $Entry.Startelf) { $sub=$Entry.Einsaetze-$Entry.Startelf }
-        Add-ChartRows $ui.BalancePanel @(@{Label='Startelf';A=$Entry.Startelf},@{Label='Eingewechselt';A=$sub})
-        Add-ChartNote $ui.BalancePanel ("Spielminuten: $(Format-Value $Entry.Minuten)")
+        $ui.Balance.ItemsSource=@(New-NumberTile 'STARTELF' $Entry.Startelf; New-NumberTile 'EINGEWECHSELT' $sub; New-NumberTile 'MINUTEN' $Entry.Minuten)
+        $ui.Boards.ItemTemplate=$window.Resources['PlayerRow']
+        $rows=@(foreach ($r in $Entry.Serien) {
+            $league=if ($r.Wettbewerb) { $r.Wettbewerb } else { $r.Label }
+            [pscustomobject]@{ Left=$league; Right=$r.Team; LeftLogo=$r.LigaLogo; RightLogo=$r.TeamLogo
+                Goals=(Format-Value $r.A); Assists=(Format-Value $r.B) }
+        })
     } else {
-        $ui.BalanceTitle.Text='Ergebnisbilanz'
-        Add-ChartRows $ui.BalancePanel @(@{Label='Siege';A=$Entry.Siege},@{Label='Remis';A=$Entry.Remis},@{Label='Niederlagen';A=$Entry.Niederlagen})
+        $ui.Balance.ItemsSource=@(New-NumberTile 'SIEGE' $Entry.Siege; New-NumberTile 'REMIS' $Entry.Remis; New-NumberTile 'NIEDERLAGEN' $Entry.Niederlagen)
+        $ui.Boards.ItemTemplate=$window.Resources['MatchRow']
+        $series=@($Entry.Serien | Where-Object { $null -ne $_ })
+        $rows=@(for ($i=$series.Count-1; $i -ge 0; $i--) {
+            $r=$series[$i]
+            if ($r.Heim -and $r.Gast) {
+                $caption="$($r.Datum)   ·   HEIM / GAST"
+                if ($r.Status -eq 'PEN') { $caption+="   ·   i. E. $(Format-Value $r.ElferHeim):$(Format-Value $r.ElferGast)" }
+                elseif ($r.Status -eq 'AET') { $caption+='   ·   n. V.' }
+                [pscustomobject]@{Left=$r.Heim; Right=$r.Gast; LeftLogo=$r.HeimLogo; RightLogo=$r.GastLogo
+                    Caption=$caption; Score="$(Format-Value $r.HeimTore) : $(Format-Value $r.GastTore)"}
+            } else {
+                # Ältere Favoriten enthalten nur Tore aus Sicht des ausgewählten Clubs.
+                [pscustomobject]@{Left=$Entry.Name; Right='Gegner'; LeftLogo=$Entry.Logo; RightLogo=$null
+                    Caption="$($r.Label)  ·  Clubsicht"; Score="$(Format-Value $r.A) : $(Format-Value $r.B)"}
+            }
+        })
     }
+    $ui.Boards.ItemsSource=$rows
+    if ($rows.Count) { $ui.EmptyHint.Visibility='Collapsed' }
+    elseif ($Entry.Hinweis) { $ui.EmptyHint.Text=$Entry.Hinweis }
+    else { $ui.EmptyHint.Text='Für diese Saison sind keine Einzelwerte verfügbar.' }
 }
-function Set-Results([object[]]$Rows,[switch]$AutoSelect) {
+
+function Invalidate-Request {
+    $state.revision++; $state.pending=$null; $debounce.Stop()
+}
+function Set-SeasonList([int[]]$Years) {
     $state.updating=$true
-    try { $ui.Results.ItemsSource=$null; Show-Profile $null; $ui.Results.ItemsSource=$Rows }
+    try {
+        $ui.Season.ItemsSource=$null; $ui.Season.ItemsSource=$Years
+        $ui.Season.IsEnabled=$state.tab -eq 'Suche' -and $Years.Count -gt 0
+        if ($Years.Count) { $ui.Season.SelectedIndex=0 }
+    } finally { $state.updating=$false }
+}
+function Set-Results([object[]]$Rows,[string]$Title,[switch]$AutoSelect) {
+    Set-SeasonList @()
+    $state.updating=$true
+    try { $ui.Results.ItemsSource=$null; $ui.Results.ItemsSource=$Rows; Show-Profile $null }
     finally { $state.updating=$false }
-    $label=if ($state.tab -eq 'Suche') { 'TREFFER' } else { 'GESPEICHERT' }
-    $ui.ResultsTitle.Text="$label  /  $($Rows.Count)"
+    $ui.ResultsTitle.Text="$Title   /   $($Rows.Count)"
     if ($AutoSelect -and $Rows.Count) { $ui.Results.SelectedIndex=0 }
 }
-function Start-LiveRequest([string]$Kind,[hashtable]$Options) {
-    if ($state.job) { return }
+
+# Nur der letzte Stand darf die Oberfläche aktualisieren. Während einer Anfrage bleibt die Suche editierbar.
+function Start-Request([string]$Kind,[hashtable]$Options,[string]$CacheKey='') {
+    $request=@{Kind=$Kind; Options=$Options; CacheKey=$CacheKey; Revision=$state.revision}
+    if ($state.job) { $state.pending=$request; return }
     $shell=[PowerShell]::Create()
     [void]$shell.AddScript({
         param($Path,$Kind,$Options)
         $ErrorActionPreference='Stop'
         . $Path
-        if ($Kind -eq 'Suche') { Find-SoccerEntry @Options } else { Get-SoccerDetail @Options }
+        switch ($Kind) {
+            'Vorschläge' { Find-SoccerEntry @Options -FirstPage | Select-Object -First 12 }
+            'Suche'      { Find-SoccerEntry @Options }
+            'Saisons'    { Get-SoccerSeasons @Options }
+            'Profil'     { Get-SoccerDetail @Options }
+        }
     }).AddArgument((Join-Path $SoccerRoot 'src/Soccer.ps1')).AddArgument($Kind).AddArgument($Options)
-    try { $handle=$shell.BeginInvoke() } catch { $shell.Dispose(); throw }
-    $state.job=@{Shell=$shell;Handle=$handle;Kind=$Kind}
-    $ui.SearchFields.IsEnabled=$false; $ui.Results.IsEnabled=$false; $ui.ApplyKey.IsEnabled=$false
-    $ui.SearchTab.IsEnabled=$false; $ui.FavTab.IsEnabled=$false
-    Set-Status 'API-Football lädt …'; $timer.Start()
+    try { $request.Handle=$shell.BeginInvoke() } catch { $shell.Dispose(); throw }
+    $request.Shell=$shell; $state.job=$request
+    $message=switch ($Kind) {
+        'Profil' { 'Saisonstatistik wird geladen …' }
+        'Saisons' { 'Verfügbare Saisons werden geladen …' }
+        default { 'Suche läuft …' }
+    }
+    Set-Status $message
+    $timer.Start()
 }
-function Find-Selection {
-    try {
-        if ($state.job) { return }
-        if ($ui.Season.Text -notmatch '^(19|20)[0-9]{2}$') { throw 'Gib das vierstellige Startjahr der Saison ein.' }
-        $options=@{Typ=[string]$ui.TypeBox.SelectedItem.Content; Suche=$ui.Query.Text; Saison=[int]$ui.Season.Text}
-        Set-Results @()
-        if (!$state.apiKey) { throw 'API-Key fehlt. Gib den Schlüssel oben ein und wähle «Key setzen».' }
-        if ($options.Suche.Trim().Length -lt 4) { throw 'Gib mindestens vier Zeichen für die Suche ein.' }
-        $options.ApiKey=$state.apiKey
-        Start-LiveRequest 'Suche' $options
-    } catch { Set-Status $_.Exception.Message -ErrorState }
+function Show-SearchResults([object[]]$Rows,[string]$Kind) {
+    if ($Rows.Count) { Set-Status 'Wähle einen Treffer, um seine Saisons anzuzeigen.' }
+    else { Set-Status 'Keine Treffer. Prüfe den Clubnamen oder den Nachnamen.' }
+    Set-Results $Rows $(if ($Kind -eq 'Vorschläge') { 'VORSCHLÄGE' } else { 'TREFFER' }) -AutoSelect:($Kind -eq 'Suche' -and $Rows.Count -eq 1)
+}
+function Find-Selection([switch]$Suggest) {
+    if ($state.tab -ne 'Suche') { return }
+    $term=$ui.Query.Text.Trim()
+    if (!$state.apiKey) { Set-Status 'Gib oben deinen API-Football-Key ein.'; return }
+    if ($term.Length -lt 4) { Set-Status 'Gib mindestens vier Zeichen für Suchvorschläge ein.'; return }
+    $kind=if ($Suggest) { 'Vorschläge' } else { 'Suche' }
+    $type=[string]$ui.TypeBox.SelectedItem.Content
+    $key="$kind/$type/$term"
+    if ($state.searches.ContainsKey($key)) { Show-SearchResults $state.searches[$key] $kind; return }
+    Start-Request $kind @{Typ=$type; Suche=$term; ApiKey=$state.apiKey} $key
+}
+function Load-Season {
+    $item=$ui.Results.SelectedItem; $year=$ui.Season.SelectedItem
+    if (!$item -or !$year -or $state.tab -ne 'Suche') { return }
+    Invalidate-Request
+    Show-Profile $item -IdentityOnly
+    $selected=$item.PSObject.Copy(); $selected.Saison=[int]$year
+    Start-Request 'Profil' @{Entry=$selected; ApiKey=$state.apiKey}
+}
+function Show-Seasons([int[]]$Years) {
+    if ($state.allowedYears) { $Years=@($Years | Where-Object { $state.allowedYears -contains $_ }) }
+    Set-SeasonList $Years
+    if ($Years.Count) { Load-Season }
+    else { Set-Status 'Für dieses Profil ist keine anzeigbare Saison verfügbar.' }
 }
 function Read-Favorites {
     $state.saved=@(& (Join-Path $SoccerRoot 'read.ps1') -DataFile $DataFile)
     $ui.FavTab.Content="Favoriten ($($state.saved.Count))"
 }
-
 function Show-Tab([string]$Name) {
-    $state.tab=$Name
-    $search=$Name -eq 'Suche'
+    Invalidate-Request
+    $state.tab=$Name; $search=$Name -eq 'Suche'
     $ui.SearchFields.Visibility=if ($search) { 'Visible' } else { 'Collapsed' }
     $ui.SearchTab.Background=if ($search) { '#C9EDDA' } else { '#EAF0EC' }
     $ui.FavTab.Background=if ($search) { '#EAF0EC' } else { '#C9EDDA' }
     if ($search) {
-        Set-Results @()
-        if ($state.apiKey) { Set-Status 'API-Football · Clubname oder Nachname eingeben und Suchen wählen.' }
+        Set-Results @() 'VORSCHLÄGE'
+        if ($state.apiKey) { Find-Selection -Suggest }
         else { Set-Status 'Gib oben deinen API-Football-Key ein. Gespeicherte Favoriten kannst du auch offline öffnen.' }
-
     } else {
         try {
             Read-Favorites
             Set-Status 'Deine lokal gespeicherten Profile.'
-            Set-Results $state.saved -AutoSelect
-            if (!$state.saved.Count) { Set-Status 'Noch keine Favoriten. Öffne einen Treffer und wähle «Favorit speichern».' }
-        } catch { Set-Results @(); Set-Status $_.Exception.Message -ErrorState }
+            Set-Results $state.saved 'GESPEICHERT' -AutoSelect
+            if (!$state.saved.Count) { Set-Status 'Noch keine Favoriten. Öffne ein Profil und wähle «Favorit speichern».' }
+        } catch { Set-Results @() 'GESPEICHERT'; Set-Status $_.Exception.Message -ErrorState }
     }
 }
+
 $timer=[Windows.Threading.DispatcherTimer]::new()
-$timer.Interval=[TimeSpan]::FromMilliseconds(120)
+$timer.Interval=[TimeSpan]::FromMilliseconds(100)
 $timer.Add_Tick({
     $job=$state.job
     if (!$job -or !$job.Handle.IsCompleted) { return }
     $timer.Stop(); $state.job=$null
-    $ui.SearchFields.IsEnabled=$true; $ui.Results.IsEnabled=$true; $ui.ApplyKey.IsEnabled=$true
-    $ui.SearchTab.IsEnabled=$true; $ui.FavTab.IsEnabled=$true
     try {
         $rows=@($job.Shell.EndInvoke($job.Handle))
         if ($job.Shell.HadErrors) { throw [string]$job.Shell.Streams.Error[0] }
-        if ($job.Kind -eq 'Suche') {
-            if ($rows.Count) { Set-Status 'Wähle einen Treffer, um die Saisonstatistik zu laden.' }
-            else { Set-Status 'Keine Treffer. Prüfe den Clubnamen oder den Nachnamen des Spielers.' }
-            Set-Results $rows -AutoSelect:($rows.Count -eq 1)
-        } else { Show-Profile $rows[0]; Set-Status 'Saisonstatistik geladen.' }
-    } catch { Show-Profile $null; Set-Status $_.Exception.Message -ErrorState }
-    finally { $job.Shell.Dispose() }
+        if ($job.Revision -eq $state.revision) {
+            switch ($job.Kind) {
+                'Saisons' { $state.seasons[$job.CacheKey]=$rows; Show-Seasons $rows }
+                'Profil'  { Show-Profile $rows[0]; Set-Status 'Saisonstatistik geladen.' }
+                default   { $state.searches[$job.CacheKey]=$rows; Show-SearchResults $rows $job.Kind }
+            }
+        }
+    } catch {
+        if ($job.Revision -eq $state.revision) {
+            $message=$_.Exception.Message
+            # Manche Tarife melden den tatsächlich freigegebenen Zeitraum erst beim Detailaufruf.
+            if ($job.Kind -eq 'Profil' -and $message -match '(?i)season.{0,120}?from\s+(20\d{2})\s+to\s+(20\d{2})') {
+                $first=[int]$Matches[1]; $last=[int]$Matches[2]
+                if ($first -le $last -and ($job.Options.Entry.Saison -notin ($first..$last))) {
+                    $state.allowedYears=$first..$last
+                    Show-Seasons @($ui.Season.ItemsSource)
+                } else { Set-Status $message -ErrorState }
+            } else { Set-Status $message -ErrorState }
+        }
+    } finally {
+        $job.Shell.Dispose()
+        $next=$state.pending; $state.pending=$null
+        if ($next -and $next.Revision -eq $state.revision -and !$state.job) {
+            Start-Request $next.Kind $next.Options $next.CacheKey
+        }
+    }
+})
+$debounce=[Windows.Threading.DispatcherTimer]::new()
+$debounce.Interval=[TimeSpan]::FromMilliseconds(500)
+$debounce.Add_Tick({ $debounce.Stop(); Find-Selection -Suggest })
+$ui.Query.Add_TextChanged({
+    if ($state.tab -ne 'Suche') { return }
+    Invalidate-Request; Set-Results @() 'VORSCHLÄGE'
+    if ($ui.Query.Text.Trim().Length -ge 4 -and $state.apiKey) { $debounce.Start() }
+    elseif ($state.apiKey) { Set-Status 'Gib mindestens vier Zeichen für Suchvorschläge ein.' }
 })
 $ui.Results.Add_SelectionChanged({
     if ($state.updating) { return }
+    Invalidate-Request; Set-SeasonList @()
     $item=$ui.Results.SelectedItem
-    try {
-        if (!$item -or $state.tab -eq 'Favoriten') { Show-Profile $item }
-        else { Show-Profile $null; Start-LiveRequest 'Detail' @{Entry=$item; ApiKey=$state.apiKey} }
-    } catch { Set-Status $_.Exception.Message -ErrorState }
+    if (!$item) { Show-Profile $null; return }
+    if ($state.tab -eq 'Favoriten') {
+        if ($item.Saison) { Set-SeasonList @([int]$item.Saison) }
+        Show-Profile $item; return
+    }
+    Show-Profile $item -IdentityOnly
+    $key="$($item.Typ)/$($item.Id)"
+    if ($state.seasons.ContainsKey($key)) { Show-Seasons $state.seasons[$key] }
+    else { Start-Request 'Saisons' @{Entry=$item; ApiKey=$state.apiKey} $key }
 })
+$ui.Season.Add_SelectionChanged({ if (!$state.updating) { Load-Season } })
 $ui.PinButton.Add_Click({
     try {
         if (!$state.entry) { return }
@@ -218,42 +279,42 @@ $ui.PinButton.Add_Click({
         else { Read-Favorites; Set-Status "$($state.entry.Name) ist in den Favoriten gespeichert." }
     } catch { Set-Status $_.Exception.Message -ErrorState }
 })
-$ui.SearchButton.Add_Click({ Find-Selection })
-$ui.Query.Add_KeyDown({ param($sender,$e) if ($e.Key -eq 'Return') { Find-Selection; $e.Handled=$true } })
-$ui.SearchTab.Add_Click({ Show-Tab 'Suche' }); $ui.FavTab.Add_Click({ Show-Tab 'Favoriten' })
-$ui.TypeBox.Add_SelectionChanged({
-    $ui.Query.Text=''
-    if ($state.tab -eq 'Suche') { Show-Tab 'Suche' }
+function Submit-Search { Invalidate-Request; Set-Results @() 'TREFFER'; Find-Selection }
+$ui.SearchButton.Add_Click({ Submit-Search })
+$ui.Query.Add_KeyDown({ param($sender,$e)
+    if ($e.Key -eq 'Return') { Submit-Search; $e.Handled=$true }
+    if ($e.Key -eq 'Down' -and $ui.Results.Items.Count) {
+        $ui.Results.SelectedIndex=0; [void]$ui.Results.Focus(); $e.Handled=$true
+    }
 })
+$ui.SearchTab.Add_Click({ Show-Tab 'Suche' }); $ui.FavTab.Add_Click({ Show-Tab 'Favoriten' })
+$ui.TypeBox.Add_SelectionChanged({ if ($state.tab -eq 'Suche') { Show-Tab 'Suche' } })
 function Set-SessionKey {
     $key=$ui.KeyBox.Password.Trim()
     if (!$key) { Set-Status 'Gib zuerst deinen API-Football-Key ein.' -ErrorState; return }
-    $state.apiKey=$key
-    $ui.KeyBox.Clear()
-    $ui.KeyStatus.Text='API-Key gesetzt'
-    Set-Status 'Schlüssel für diese Sitzung gesetzt. Starte eine Suche.'
+    $state.apiKey=$key; $state.allowedYears=$null; $state.searches.Clear(); $state.seasons.Clear()
+    $ui.KeyBox.Clear(); $ui.KeyStatus.Text='API-Key gesetzt'
+    Show-Tab 'Suche'
 }
 $ui.KeyStatus.Text=if ($state.apiKey) { 'API-Key gesetzt' } else { 'API-Key fehlt' }
 $ui.ApplyKey.Add_Click({ Set-SessionKey })
-$ui.KeyBox.Add_KeyDown({ param($sender,$e) if ($e.Key -eq 'Return' -and !$state.job) { Set-SessionKey; $e.Handled=$true } })
+$ui.KeyBox.Add_KeyDown({ param($sender,$e) if ($e.Key -eq 'Return') { Set-SessionKey; $e.Handled=$true } })
 $window.Add_Closed({
-    $timer.Stop()
+    $debounce.Stop(); $timer.Stop()
     if ($state.job) { $state.job.Shell.Stop(); $state.job.Shell.Dispose(); $state.job=$null }
 })
 Show-Tab 'Suche'
 try { Read-Favorites } catch { Set-Status $_.Exception.Message -ErrorState }
 if ($SmokeTest) {
-    if ($ui.Profile.Text -ne 'Spielanalyse' -or $ui.SeriesPanel.Children.Count -ne 1) { throw 'Startansicht fehlerhaft.' }
+    if ($ui.Profile.Text -ne 'Stadiontafel' -or $ui.Season.IsEnabled) { throw 'Startansicht fehlerhaft.' }
     Show-Tab 'Favoriten'
-    if ($state.saved.Count) {
-        if ($ui.Results.Items.Count -ne $state.saved.Count) { throw 'Favoritenliste fehlerhaft.' }
-        foreach ($profile in $state.saved) {
-            $ui.Results.SelectedItem=$profile
-            if ($ui.Profile.Text -ne $profile.Name -or $ui.V2.Text -ne (Format-Value $profile.Tore)) { throw 'Profilwerte fehlerhaft.' }
-            if ($profile.Serien -and $ui.SeriesPanel.Children.Count -ne $profile.Serien.Count) { throw 'Diagramm fehlerhaft.' }
-        }
+    foreach ($profile in $state.saved) {
+        $ui.Results.SelectedItem=$profile
+        if ($ui.Profile.Text -ne $profile.Name -or $ui.Totals.Items[1].Number -ne (Format-Value $profile.Tore)) { throw 'Profilwerte fehlerhaft.' }
+        if ($profile.Serien -and $ui.Boards.Items.Count -ne $profile.Serien.Count) { throw 'Anzeigetafel fehlerhaft.' }
+        if ($profile.Saison -and $ui.Season.SelectedItem -ne $profile.Saison) { throw 'Gespeicherte Saison fehlt.' }
     }
-    $window.Close()
+    if ($MyInvocation.InvocationName -ne '.') { $window.Close() }
     return 'WPF-Smoke-Test bestanden.'
 }
 [void]$window.ShowDialog()
