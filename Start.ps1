@@ -1,7 +1,8 @@
 ﻿# Desktop-Startpunkt. Die Datenlogik in src/Soccer.ps1 ist unabhängig von WPF.
 [CmdletBinding()]
-param([switch]$SmokeTest, [string]$PreviewPath, [string]$DataFile=(Join-Path $PSScriptRoot 'data/football.json'))
+param([switch]$SmokeTest, [string]$PreviewPath, [string]$DataFile)
 $ErrorActionPreference = 'Stop'
+if (!$DataFile) { $DataFile=Join-Path $PSScriptRoot 'data/football.json' }
 if ($env:OS -ne 'Windows_NT') { throw 'Die WPF-Oberfläche braucht Windows. read.ps1 und write.ps1 laufen auch mit PowerShell 7 unter Linux.' }
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') { throw 'Starte Start.cmd oder powershell.exe -STA -File .\Start.ps1.' }
 Add-Type -AssemblyName PresentationFramework

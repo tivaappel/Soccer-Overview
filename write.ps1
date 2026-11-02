@@ -7,9 +7,10 @@ param(
     [Parameter(ParameterSetName='Suche')][switch]$Demo,
     [Parameter(Mandatory,ParameterSetName='Auswahl')][psobject]$Eintrag,
     [Parameter(ParameterSetName='Auswahl')][switch]$Entfernen,
-    [string]$DataFile=(Join-Path $PSScriptRoot 'data/football.json')
+    [string]$DataFile
 )
 $ErrorActionPreference='Stop'
+if (!$DataFile) { $DataFile=Join-Path $PSScriptRoot 'data/football.json' }
 . (Join-Path $PSScriptRoot 'src/Soccer.ps1')
 if ($PSCmdlet.ParameterSetName -eq 'Auswahl') {
     Update-SoccerStore $DataFile @($Eintrag) -Remove:$Entfernen
