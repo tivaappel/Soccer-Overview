@@ -243,7 +243,9 @@ if ($SmokeTest) {
         $window.Dispatcher.Invoke([Action]{}, [Windows.Threading.DispatcherPriority]::ApplicationIdle)
         $view=$window.Content
         # Feste Vorschaugrösse, unabhängig von der Auflösung des Windows-Runners.
+        $window.Content=$null
         $size=[Windows.Size]::new(1160,860)
+        $view.Width=$size.Width; $view.Height=$size.Height
         $view.Measure($size)
         $view.Arrange([Windows.Rect]::new($size))
         $view.UpdateLayout()
@@ -255,6 +257,7 @@ if ($SmokeTest) {
         $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
         $stream=[IO.File]::Create($PreviewPath)
         try { $encoder.Save($stream) } finally { $stream.Dispose() }
+        $window.Content=$view
         $window.Hide()
     }
     $ui.TypeBox.SelectedIndex=1; $ui.Query.Text='Haaland'; Find-Selection
