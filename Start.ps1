@@ -1,6 +1,6 @@
 ﻿# Desktop-Startpunkt. Die Datenlogik in src/Soccer.ps1 ist unabhängig von WPF.
 [CmdletBinding()]
-param([switch]$SmokeTest, [string]$DataFile=(Join-Path $PSScriptRoot 'data/football.json'))
+param([switch]$SmokeTest, [string]$PreviewPath, [string]$DataFile=(Join-Path $PSScriptRoot 'data/football.json'))
 $ErrorActionPreference = 'Stop'
 if ($env:OS -ne 'Windows_NT') { throw 'Die WPF-Oberfläche braucht Windows. read.ps1 und write.ps1 laufen auch mit PowerShell 7 unter Linux.' }
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') { throw 'Starte Start.cmd oder powershell.exe -STA -File .\Start.ps1.' }
@@ -235,8 +235,25 @@ Show-Tab 'Suche'
 try { Read-Favorites } catch { Set-Status $_.Exception.Message -ErrorState }
 if ($SmokeTest) {
     if ($ui.Profile.Text -ne 'Arsenal' -or !$ui.SeriesPanel.Children.Count) { throw 'Clubansicht fehlerhaft.' }
+    if ($PreviewPath) {
+        # Die Vorschau zeigt die echte Demoansicht mit denselben WPF-Elementen.
+        $window.Width=1180; $window.Height=890
+        $window.Show(); $window.UpdateLayout()
+        $window.Dispatcher.Invoke([Action]{}, [Windows.Threading.DispatcherPriority]::ApplicationIdle)
+        $view=$window.Content
+        $bitmap=[Windows.Media.Imaging.RenderTargetBitmap]::new(
+            [int][Math]::Ceiling($view.ActualWidth),[int][Math]::Ceiling($view.ActualHeight),
+            96,96,[Windows.Media.PixelFormats]::Pbgra32)
+        $bitmap.Render($view)
+        $encoder=[Windows.Media.Imaging.PngBitmapEncoder]::new()
+        $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
+        $stream=[IO.File]::Create($PreviewPath)
+        try { $encoder.Save($stream) } finally { $stream.Dispose() }
+        $window.Hide()
+    }
     $ui.TypeBox.SelectedIndex=1; $ui.Query.Text='Haaland'; Find-Selection
     if ($ui.Profile.Text -ne 'Erling Haaland' -or $ui.V2.Text -ne '31') { throw 'Spieleransicht fehlerhaft.' }
+    $window.Close()
     return 'WPF-Smoke-Test bestanden.'
 }
 [void]$window.ShowDialog()
